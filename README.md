@@ -17,7 +17,7 @@ Video Demo https://youtu.be/9zb6EJ8KSi8
 
 # Description
 
-Adds apartments that can be rented by players the cost and rent length can be changed by apartment in the SQL includes an option to view an apartment before purchasing the ability to give keys to other players along with a stash using OX_Inventory and a wardrobe using BRP Fivem Appearance. I plan to add offices and a shared garage system for those that have keys to the same apartmentalong with any other sugestions I might recieve.
+Adds apartments that can be rented by players the cost and rent length can be changed by apartment in the SQL along with a starter apartment on Alta Street includes an option to view an apartment before purchasing the ability to give keys to other players along with a stash using OX_Inventory and a wardrobe using BRP Fivem Appearance. I plan to add offices and a shared garage system for those that have keys to the same apartmentalong with any other sugestions I might recieve.
 
 
 # Setup
