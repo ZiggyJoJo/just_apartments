@@ -17,11 +17,11 @@ Video Demo https://youtu.be/9zb6EJ8KSi8
 
 # Description
 
-Adds apartments that can be rented by players the cost and rent length can be changed by apartment in the SQL along with a starter apartment on Alta Street includes an option to view an apartment before purchasing the ability to give keys to other players along with a stash using OX_Inventory and a wardrobe using BRP Fivem Appearance. I plan to add offices and a shared garage system for those that have keys to the same apartmentalong with any other sugestions I might recieve.
+Adds apartments that can be rented by players the cost and rent length can be changed by apartment in the SQL along with a starter apartment on Alta Street includes an option to view an apartment before purchasing the ability to give keys to other players along with a stash using OX_Inventory and a wardrobe using BRP Fivem Appearance. I plan to add offices and a shared garage system for those that have keys to the same apartment along with any other suggestions I might receive.
 
 
 # Setup
 
-1. Ensure any dependancies before the script 
+1. Ensure any dependencies before the script 
 2. Run the SQL file 
-3. Add TriggerServerEvent('just_apartments:getLastApartment') after your player spawns in if you use a spawn selector add it for last location option and TriggerServerEvent('just_apartments:updateLastApartment', nil) for any other option to prevent instancing outside of apartments 
+3. Add TriggerServerEvent('just_apartments:getLastApartment') after your player spawns in if you use a spawn selector add it for last location option and TriggerServerEvent('just_apartments:updateLastApartment', nil) for any other option to prevent instancing outside of apartments
