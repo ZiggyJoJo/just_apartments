@@ -203,7 +203,8 @@ AddEventHandler("just_apartments:alertOwner", function(data)
         -- exports.xng_parsingtable:ParsingTable_sv(Namedinstances)
         if v.name == (data.apartment..data.id) then
             for k2,v2 in pairs(Namedinstances[k].people) do
-                TriggerClientEvent("swt_notifications:Icon",v2 , 'Someones at the door',"top-right",5000,"blue-10","white",true,"mdi-doorbell")
+                TriggerClientEvent("just_apartments:notification", _source , 'Someones at the door', "Go buzz them in", "info")
+                -- TriggerClientEvent("swt_notifications:Icon",v2 , 'Someones at the door',"top-right",5000,"blue-10","white",true,"mdi-doorbell")
             end
         end
     end
@@ -321,10 +322,12 @@ AddEventHandler("just_apartments:giveKeys", function(data)
             ['@player_name'] = xTarget.name,
             ['@appt_owner'] = xPlayer.identifier
         })
-        TriggerClientEvent("swt_notifications:Icon", _source , 'Key given',"top-right",5000,"blue-10","white",true,"mdi-key-variant")
+        TriggerClientEvent("just_apartments:notification", _source , 'Key given', nil, "success")
+        -- TriggerClientEvent("swt_notifications:Icon", _source , 'Key given',"top-right",5000,"blue-10","white",true,"mdi-key-variant")
         -- TriggerClientEvent("swt_notifications:Icon", data.target , 'Key recieved',"top-right",5000,"blue-10","white",true,"mdi-key-variant")
     else
-        TriggerClientEvent("swt_notifications:Icon", _source , 'Person already has keys',"top-right",5000,"red","white",true,"mdi-alert-circle-outline")
+        TriggerClientEvent("just_apartments:notification", _source , 'Person already has keys', nil, "error")
+        -- TriggerClientEvent("swt_notifications:Icon", _source , 'Person already has keys',"top-right",5000,"red","white",true,"mdi-alert-circle-outline")
     end
 end)
 

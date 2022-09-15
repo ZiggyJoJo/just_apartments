@@ -672,6 +672,15 @@ AddEventHandler('just_apartments:removePlayerKeys', function ()
 	TriggerServerEvent('just_apartments:removeKeys', data)
 end)
 
+RegisterNetEvent('just_apartments:notification')
+AddEventHandler('just_apartments:notification', function (Notificationtitle, Notificationdescription, Notificationtype)
+	lib.defaultNotify({
+        title = Notificationtitle,
+        description = Notificationdescription,
+        status = Notificationtype
+    })
+end)
+
 -----------
 -- Stash --
 -----------
