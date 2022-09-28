@@ -269,8 +269,10 @@ AddEventHandler('onServerResourceStart', function(resourceName)
                     if apartments[i].renew then
                         local Price = MySQL.scalar.await('SELECT Price FROM apartments WHERE Name = @Name', {['@Name'] = apartments[i].apartment})
                         local rentLength = MySQL.scalar.await('SELECT rentLength FROM apartments WHERE Name = @Name', {['@Name'] = apartments[i].apartment})
-                        local xPlayer = ESX.GetPlayerFromIdentifier(apartments[i].owner)
-                        if Price <= xPlayer.getAccount('bank').money then 
+                        local accounts = MySQL.scalar.await('SELECT accounts FROM users WHERE identifier = @identifier', {['@identifier'] = apartments[i].owner})
+                        accounts = json.decode(accounts)
+
+                        if Price <= accounts.bank then 
                             local t = os.time()
                             local date = os.date("%Y%m%d",t)
                             local d = rentLength
@@ -278,9 +280,8 @@ AddEventHandler('onServerResourceStart', function(resourceName)
                             local lastPayment = MySQL.update.await('UPDATE owned_apartments SET lastPayment = @lastPayment WHERE id = @id', {['@id'] = apartments[i].id, ['@lastPayment'] = tonumber(date)})
                             local renewDateChange = MySQL.update.await('UPDATE owned_apartments SET renewDate = @renewDate WHERE id = @id', {['@id'] = apartments[i].id, ['@renewDate'] = os.date("%Y%m%d",renewDate)})
                             if lastPayment ~= nil and renewDateChange ~= nil then
-                                xPlayer.removeAccountMoney('bank', Price)
-                                local account_id = exports.ghmattimysql:scalarSync('SELECT account_id FROM bank_accounts WHERE owner = @identifier AND name = @name', { ['@identifier'] = apartments[i].owner, ['@name'] = "Personal Checking" })
-                                TriggerEvent('orp-banking:logTransaction', apartments[i].owner, "Apartment Lease Renewal"..apartments[i].apartment, account_id, 0, Price)
+                                accounts.bank = accounts.bank - Price
+                                MySQL.update.await('UPDATE users SET accounts = @accounts WHERE identifier = @identifier', {['@identifier'] = apartments[i].owner, ['@accounts'] = json.encode(accounts)})
                             end
                         else 
                             MySQL.update('UPDATE owned_apartments SET expired = @expired WHERE id = @id', {
