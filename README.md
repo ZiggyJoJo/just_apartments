@@ -7,12 +7,12 @@ Video Demo https://youtu.be/9zb6EJ8KSi8
 - ESX 
 - https://github.com/overextended/ox_lib    
 - https://github.com/brentN5/bt-polyzone
-- https://github.com/HalCroves/mythic_progbar
 
 # Optional Dependencies
 
 - For Apartment Stashes: https://github.com/overextended/ox_inventory
 - For Apartment Wardrobe: https://github.com/ZiggyJoJo/brp-fivem-appearance
+- For bank logs if using NPWD: https://github.com/project-error/pefcl
 
 
 # Description
