@@ -38,16 +38,12 @@ AddEventHandler("instance:set", function(set)
         end
         table.insert(instances[instanceSource], src)
     end
-    SetPlayerRoutingBucket(
-        src --[[ string ]], 
-        instanceSource
-    )
+    SetPlayerRoutingBucket(src, instanceSource)
     print('[INSTANCES] Instances now looks like this: ', json.encode(instances))
 end)
  
 Namedinstances = {}
- 
- 
+
 RegisterServerEvent("instance:setNamed")
 AddEventHandler("instance:setNamed", function(setName)
     print('[INSTANCES] Named Instances looked like this: ', json.encode(Namedinstances))
@@ -83,29 +79,31 @@ AddEventHandler("instance:setNamed", function(setName)
     end
     if instanceSource ~= 0 then
         if not Namedinstances[instanceSource] then
-            Namedinstances[instanceSource] = {
-                name = setName,
-                people = {}
-            }
+            Namedinstances[instanceSource] = {name = setName, people = {}}
         end
         table.insert(Namedinstances[instanceSource].people, src)
     end
-    SetPlayerRoutingBucket(
-        src --[[ string ]], 
-        instanceSource
-    )
+    SetPlayerRoutingBucket(src, instanceSource)
     print('[INSTANCES] Named Instances now look like this: ', json.encode(Namedinstances))
 end)
 
 local playersAtDoor = {}
 
 RegisterServerEvent("just_apartments:purchaseApartment")
-AddEventHandler("just_apartments:purchaseApartment", function(apartment)
+AddEventHandler("just_apartments:purchaseApartment", function(apartment, currentApartmentLabel)
 	local xPlayer = ESX.GetPlayerFromId(source)
     local Price = MySQL.scalar.await('SELECT Price FROM apartments WHERE Name = @Name', {['@Name'] = apartment})
     local rentLength = MySQL.scalar.await('SELECT rentLength FROM apartments WHERE Name = @Name', {['@Name'] = apartment})
+    local balance 
 
-    if Price <= xPlayer.getAccount('bank').money then
+    if Config.usePEFCL then
+        balance = exports.pefcl:getDefaultAccountBalance(source)
+        balance = balance.data
+    else 
+        balance = xPlayer.getAccount('bank').money
+    end
+
+    if Price <= balance then
         local t = os.time()
         local date = os.date("%Y%m%d",t)
         local d = rentLength
@@ -116,9 +114,11 @@ AddEventHandler("just_apartments:purchaseApartment", function(apartment)
             local renewDateChange = MySQL.update.await('UPDATE owned_apartments SET renewDate = @renewDate WHERE id = @id', {['@id'] = oldLease, ['@renewDate'] = os.date("%Y%m%d",renewDate)})
             local lastPayment = MySQL.update.await('UPDATE owned_apartments SET renew = @renew WHERE id = @id', {['@id'] = oldLease, ['@renew'] = tonumber(1)})
             local renewDateChange = MySQL.update.await('UPDATE owned_apartments SET expired = @expired WHERE id = @id', {['@id'] = oldLease, ['@expired'] = tonumber(0)})
-            xPlayer.removeAccountMoney('bank', Price)
-            local account_id = exports.ghmattimysql:scalarSync('SELECT account_id FROM bank_accounts WHERE owner = @identifier AND name = @name', { ['@identifier'] = xPlayer.identifier, ['@name'] = "Personal Checking" })
-            TriggerEvent('orp-banking:logTransaction', xPlayer.identifier, "Apartment Lease"..apartment, account_id, 0, Price)
+            if Config.usePEFCL then
+                exports.pefcl:removeBankBalance(source, { amount = Price, message = (currentApartmentLabel.." lease renewal") })
+            else 
+                xPlayer.removeAccountMoney('bank', Price)
+            end
         else
             MySQL.insert('INSERT INTO `owned_apartments` (`owner`, `lastPayment`, `renewDate`, `apartment`) VALUES (@owner, @lastPayment, @renewDate, @apartment)', {
                 ['@apartment'] = apartment,
@@ -130,9 +130,11 @@ AddEventHandler("just_apartments:purchaseApartment", function(apartment)
             if Config.UseOxInventory then
                 exports.ox_inventory:RegisterStash((apartment..id.."Stash"), (apartment.." Stash - "..id), 50, 100000, id)
             end
-            xPlayer.removeAccountMoney('bank', Price)
-            local account_id = exports.ghmattimysql:scalarSync('SELECT account_id FROM bank_accounts WHERE owner = @identifier AND name = @name', { ['@identifier'] = xPlayer.identifier, ['@name'] = "Personal Checking" })
-            TriggerEvent('orp-banking:logTransaction', xPlayer.identifier, "Apartment Lease"..apartment, account_id, 0, Price)
+            if Config.usePEFCL then
+                exports.pefcl:removeBankBalance(source, { amount = Price, message = ("Apartment lease at "..currentApartmentLabel) })
+            else 
+                xPlayer.removeAccountMoney('bank', Price)
+            end
         end
     else
         -- print("not enough money")
@@ -269,10 +271,17 @@ AddEventHandler('onServerResourceStart', function(resourceName)
                     if apartments[i].renew then
                         local Price = MySQL.scalar.await('SELECT Price FROM apartments WHERE Name = @Name', {['@Name'] = apartments[i].apartment})
                         local rentLength = MySQL.scalar.await('SELECT rentLength FROM apartments WHERE Name = @Name', {['@Name'] = apartments[i].apartment})
-                        local accounts = MySQL.scalar.await('SELECT accounts FROM users WHERE identifier = @identifier', {['@identifier'] = apartments[i].owner})
-                        accounts = json.decode(accounts)
+                        local balance
+                        if Config.usePEFCL then
+                            balance = exports.pefcl:getTotalBankBalanceByIdentifier(source, apartments[i].owner)
+                            balance = balance.data
+                        else 
+                            local accounts = MySQL.scalar.await('SELECT accounts FROM users WHERE identifier = @identifier', {['@identifier'] = apartments[i].owner})
+                            accounts = json.decode(accounts)
+                            balance = accounts.bank
+                        end
 
-                        if Price <= accounts.bank then 
+                        if Price <= balance then 
                             local t = os.time()
                             local date = os.date("%Y%m%d",t)
                             local d = rentLength
@@ -280,8 +289,12 @@ AddEventHandler('onServerResourceStart', function(resourceName)
                             local lastPayment = MySQL.update.await('UPDATE owned_apartments SET lastPayment = @lastPayment WHERE id = @id', {['@id'] = apartments[i].id, ['@lastPayment'] = tonumber(date)})
                             local renewDateChange = MySQL.update.await('UPDATE owned_apartments SET renewDate = @renewDate WHERE id = @id', {['@id'] = apartments[i].id, ['@renewDate'] = os.date("%Y%m%d",renewDate)})
                             if lastPayment ~= nil and renewDateChange ~= nil then
-                                accounts.bank = accounts.bank - Price
-                                MySQL.update.await('UPDATE users SET accounts = @accounts WHERE identifier = @identifier', {['@identifier'] = apartments[i].owner, ['@accounts'] = json.encode(accounts)})
+                                if Config.usePEFCL then
+                                    exports.pefcl:removeBankBalanceByIdentifier(source, { identifier = apartments[i].owner, amount = Price, message = apartments[i].apartment.." apartment lease renewal" })
+                                else 
+                                    accounts.bank = balance - Price
+                                    MySQL.update.await('UPDATE users SET accounts = @accounts WHERE identifier = @identifier', {['@identifier'] = apartments[i].owner, ['@accounts'] = json.encode(accounts)})
+                                end
                             end
                         else 
                             MySQL.update('UPDATE owned_apartments SET expired = @expired WHERE id = @id', {

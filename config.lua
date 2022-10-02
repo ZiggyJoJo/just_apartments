@@ -4,6 +4,8 @@ Config.UseOxInventory = true
 
 Config.BrpFivemAppearance = true
 
+Config.usePEFCL = false
+
 Config.Apartments = {
     {
         label = "Alta Street Apartments", 

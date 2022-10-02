@@ -26,14 +26,26 @@ local function Blips(coords, type, label, job, blipOptions)
     if job then return end
     if blip == false then return end
     local blip = AddBlipForCoord(coords)
-    SetBlipSprite(blip, blipOptions?.sprite or 357)
-    SetBlipScale(blip, blipOptions?.scale or 0.8)
-    SetBlipColour(blip, blipOptions?.colour ~= nil and blipOptions.colour or type == 'car' and Config.BlipColors.Car or type == 'boat' and Config.BlipColors.Boat or Config.BlipColors.Aircraft)
+    SetBlipSprite(blip, blipOptions.sprite or 357)
+    SetBlipScale(blip, blipOptions.scale or 0.8)
+    SetBlipColour(blip, blipOptions.colour ~= nil and blipOptions.colour or type == 'car' and Config.BlipColors.Car or type == 'boat' and Config.BlipColors.Boat or Config.BlipColors.Aircraft)
     SetBlipAsShortRange(blip, true)
     BeginTextCommandSetBlipName("STRING")
     AddTextComponentString("Apartment")
     EndTextCommandSetBlipName(blip)
 end
+
+function comma_value(amount)
+	local formatted = amount
+	while true do  
+		formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)", '%1,%2')
+		if (k==0) then
+			break
+		end	
+	end
+	return formatted
+end
+
 
 for k, v in pairs(Config.Apartments) do
     exports["bt-polyzone"]:AddBoxZone(v.zone.name.."Entrance", vector3(v.entrance.x, v.entrance.y, v.entrance.z), 3, 3, {
@@ -198,7 +210,7 @@ AddEventHandler('just_apartments:entranceMenu', function (data)
     Citizen.CreateThread(function ()
         lib.showTextUI("[E] Apartments", {icon = "fa-solid fa-building"})
         while atDoor or atExit do
-            if (IsControlJustReleased(0, 54) or IsControlJustReleased(0, 175)) then
+            if IsControlJustReleased(0, 54) then
                 TriggerServerEvent('just_apartments:getAppartmentsWithKeys', data, currentApartment)
             end
             Citizen.Wait(0)
@@ -215,7 +227,7 @@ AddEventHandler('just_apartments:keyEntryMenu', function (apartments, data)
         options = {
             {
                 title = "Purchase "..currentApartmentLabel.." Apartment",
-                description = "$"..data.price,
+                description = "$"..comma_value(data.price),
                 event = 'just_apartments:purchaseApartment',
                 args = {
                     currentApartment = currentApartment,
@@ -390,7 +402,7 @@ AddEventHandler('just_apartments:leaseMenu', function (data)
             menu = "just_apartments:keyEntryMenu",
             options = {{             
                 title = "Cancel Lease",
-                description = "Renews: "..string.sub(data.renewDate,5,6).."/"..string.sub(data.renewDate,7,8).."/"..string.sub(data.renewDate,1,4).." For $"..data.price,
+                description = "Renews: "..string.sub(data.renewDate,5,6).."/"..string.sub(data.renewDate,7,8).."/"..string.sub(data.renewDate,1,4).." For $"..comma_value(data.price),
                 event = 'just_apartments:changeLease',
                 args = {
                     renew = 0,
@@ -404,7 +416,7 @@ AddEventHandler('just_apartments:leaseMenu', function (data)
             title =  "Change Lease",
             menu = "just_apartments:keyEntryMenu",
             options = {{           
-                title = "Resume Lease $"..data.price,
+                title = "Resume Lease $"..comma_value(data.price),
                 description = "Lease Ends: "..string.sub(data.renewDate,5,6).."/"..string.sub(data.renewDate,7,8).."/"..string.sub(data.renewDate,1,4),
                 event = 'just_apartments:changeLease',
                 args = {
@@ -423,7 +435,7 @@ end)
 
 RegisterNetEvent('just_apartments:purchaseApartment')
 AddEventHandler('just_apartments:purchaseApartment', function (currentApartment)
-    TriggerServerEvent('just_apartments:purchaseApartment', currentApartment.currentApartment)
+    TriggerServerEvent('just_apartments:purchaseApartment', currentApartment.currentApartment, currentApartmentLabel)
     atDoor = false 
     Citizen.Wait(500)
     atDoor = true 
@@ -437,7 +449,7 @@ AddEventHandler('just_apartments:exitMenu', function (coords, playersAtDoor, exi
         local coords = coords 
         lib.showTextUI("[E] Door", {icon = "fa-solid fa-door-open"})
         while atDoor or atExit do
-            if (IsControlJustReleased(0, 54) or IsControlJustReleased(0, 175)) then
+            if IsControlJustReleased(0, 54) then
                 local options = {
                     {
                         title = "Exit Apartment",
@@ -545,103 +557,81 @@ AddEventHandler('just_apartments:enterExitApartment', function (coords, entering
         local player = PlayerPedId()
         while atDoor or atExit do
             if currentApartment == 'AltaStreetAppts' then
-                if (IsControlJustReleased(0, 54) or IsControlJustReleased(0, 175)) then
-                    TriggerEvent("mythic_progbar:client:progress", {
-                        name = "just_apartments_use",
+                if IsControlJustReleased(0, 54) then
+                    if lib.progressBar({
                         duration = 5000,
                         label = enteringExiting.." Apartment",
                         useWhileDead = false,
                         canCancel = true,
-                        controlDisables = {
-                            disableMovement = true,
-                            disableCarMovement = true,
-                            disableMouse = false,
-                            disableCombat = true,
+                        disable  = {
+                            move = true,
                         },
-                        -- animation = {
-                        --     animDict = "missheistdockssetup1clipboard@idle_a",
-                        --     anim = "idle_a",
-                        --     flags = 561,
-                        -- },
-                    }, function(status)
-                        if not status then
-                            PlaySoundFrontend(-1, "CLOSED", "MP_PROPERTIES_ELEVATOR_DOORS", 1);
-                            Citizen.Wait(500)
-                            PlaySoundFrontend(-1, "Hack_Success", "DLC_HEIST_BIOLAB_PREP_HACKING_SOUNDS", 0)
-                            Citizen.Wait(500)
-                            PlaySoundFrontend(-1, "OPENED", "MP_PROPERTIES_ELEVATOR_DOORS", 1);
-
-                            if enteringExiting == "Entering" then 
-                                TriggerServerEvent('instance:set')
-                                TriggerServerEvent('just_apartments:updateLastApartment', 'AltaStreetAppts')
-                            else
-                                TriggerServerEvent('instance:set', 0)
-                                currentApartment = nil
-                                currentApartmentLabel = nil
-                                currentApartmentID = nil
-                                TriggerServerEvent('just_apartments:updateLastApartment', nil)
-                            end
-                            atDoor = false 
-                            atExit = false
-                            SetEntityCoords(player, coords.x, coords.y, coords.z)
-                            SetEntityHeading(player, coords.h)
-                        end
-                    end)
-                end
-            else 
-                atDoor = false
-                atExit = false
-                TriggerEvent("mythic_progbar:client:progress", {
-                    name = "just_apartments_use",
-                    duration = 5000,
-                    label = coords.enteringExiting.." Apartment",
-                    useWhileDead = false,
-                    canCancel = true,
-                    controlDisables = {
-                        disableMovement = true,
-                        disableCarMovement = true,
-                        disableMouse = false,
-                        disableCombat = true,
-                    },
-                    -- animation = {
-                    --     animDict = "missheistdockssetup1clipboard@idle_a",
-                    --     anim = "idle_a",
-                    --     flags = 561,
-                    -- },
-                }, function(status)
-                    if not status then
+                    }) then
                         PlaySoundFrontend(-1, "CLOSED", "MP_PROPERTIES_ELEVATOR_DOORS", 1);
                         Citizen.Wait(500)
                         PlaySoundFrontend(-1, "Hack_Success", "DLC_HEIST_BIOLAB_PREP_HACKING_SOUNDS", 0)
                         Citizen.Wait(500)
                         PlaySoundFrontend(-1, "OPENED", "MP_PROPERTIES_ELEVATOR_DOORS", 1);
 
-                        if coords.enteringExiting == "Entering" then 
-                            TriggerServerEvent('instance:setNamed', currentApartment..coords.id)
-                            TriggerServerEvent('just_apartments:updateLastApartment', currentApartment.." "..coords.id)
-                            currentApartmentID = coords.id
-                        elseif coords.enteringExiting == "Exiting" then 
-                            if state == "Viewing" then  
-                                TriggerServerEvent('instance:set', 0)
-                                TriggerServerEvent('just_apartments:updateLastApartment', nil)
-                            else 
-                                TriggerServerEvent('instance:setNamed', 0)
-                                TriggerServerEvent('just_apartments:updateLastApartment', nil)
-                            end
-                            state = nil
+                        if enteringExiting == "Entering" then 
+                            TriggerServerEvent('instance:set')
+                            TriggerServerEvent('just_apartments:updateLastApartment', 'AltaStreetAppts')
+                        else
+                            TriggerServerEvent('instance:set', 0)
                             currentApartment = nil
                             currentApartmentLabel = nil
                             currentApartmentID = nil
-                        elseif coords.enteringExiting == "Viewing" then 
-                            state = "Viewing"
-                            TriggerServerEvent('instance:set')
+                            TriggerServerEvent('just_apartments:updateLastApartment', nil)
                         end
                         atDoor = false 
                         atExit = false
-                        SetEntityCoords(player, coords.coords.x, coords.coords.y, coords.coords.z)
-                        SetEntityHeading(player, coords.coords.h)
+                        SetEntityCoords(player, coords.x, coords.y, coords.z)
+                        SetEntityHeading(player, coords.h)
                     end
-                end)
+                end
+            else 
+                atDoor = false
+                atExit = false
+                if lib.progressBar({
+                    duration = 5000,
+                    label = coords.enteringExiting.." Apartment",
+                    useWhileDead = false,
+                    canCancel = true,
+                    disable  = {
+                        move = true,
+                    },
+                }) then
+                    PlaySoundFrontend(-1, "CLOSED", "MP_PROPERTIES_ELEVATOR_DOORS", 1);
+                    Citizen.Wait(500)
+                    PlaySoundFrontend(-1, "Hack_Success", "DLC_HEIST_BIOLAB_PREP_HACKING_SOUNDS", 0)
+                    Citizen.Wait(500)
+                    PlaySoundFrontend(-1, "OPENED", "MP_PROPERTIES_ELEVATOR_DOORS", 1);
+
+                    if coords.enteringExiting == "Entering" then 
+                        TriggerServerEvent('instance:setNamed', currentApartment..coords.id)
+                        TriggerServerEvent('just_apartments:updateLastApartment', currentApartment.." "..coords.id)
+                        currentApartmentID = coords.id
+                    elseif coords.enteringExiting == "Exiting" then 
+                        if state == "Viewing" then  
+                            TriggerServerEvent('instance:set', 0)
+                            TriggerServerEvent('just_apartments:updateLastApartment', nil)
+                        else 
+                            TriggerServerEvent('instance:setNamed', 0)
+                            TriggerServerEvent('just_apartments:updateLastApartment', nil)
+                        end
+                        state = nil
+                        currentApartment = nil
+                        currentApartmentLabel = nil
+                        currentApartmentID = nil
+                    elseif coords.enteringExiting == "Viewing" then 
+                        state = "Viewing"
+                        TriggerServerEvent('instance:set')
+                    end
+                    atDoor = false 
+                    atExit = false
+                    SetEntityCoords(player, coords.coords.x, coords.coords.y, coords.coords.z)
+                    SetEntityHeading(player, coords.coords.h)
+                end
             end
             Citizen.Wait(0)
         end
@@ -651,6 +641,8 @@ end)
 ----------
 -- Keys --
 ----------
+
+TriggerEvent('chat:addSuggestion', '/giveApptKey', 'Give closest person keys')
 
 RegisterCommand('giveApptKey', function()
 	TriggerEvent('just_apartments:givePlayerKeys')
@@ -674,7 +666,7 @@ end)
 
 RegisterNetEvent('just_apartments:notification')
 AddEventHandler('just_apartments:notification', function (Notificationtitle, Notificationdescription, Notificationtype)
-	lib.defaultNotify({
+	lib.notify({
         title = Notificationtitle,
         description = Notificationdescription,
         status = Notificationtype
