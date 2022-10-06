@@ -7,7 +7,7 @@ Config.BrpFivemAppearance = true
 Config.usePEFCL = false
 
 Config.Apartments = {
-    {
+    ['AltaStreetAppts'] = {
         label = "Alta Street Apartments", 
         type = "StarterApartment",
         seperateExitPoint = true,
@@ -27,7 +27,7 @@ Config.Apartments = {
     ----------------
     -- Apartments --
     ----------------
-    {
+    ['4IntegrityWay'] = {
         label = "4 Integrity Way", 
         type = "Apartment",
         seperateExitPoint = true,
@@ -44,7 +44,7 @@ Config.Apartments = {
         },
     },
 
-    {
+    ['WeazelPlazaApartments'] = {
         label = "Weazel Plaza Apartments", 
         type = "Apartment",
         seperateExitPoint = true,
@@ -61,7 +61,7 @@ Config.Apartments = {
         },
     },
 
-    {
+    ['RichardsMajestic'] = {
         label = "Richards Majestic", 
         type = "Apartment",
         seperateExitPoint = true,
@@ -78,7 +78,7 @@ Config.Apartments = {
         },
     },
 
-    {
+    ['DelPerroHeights'] = {
         label = "Del Perro Heights", 
         type = "Apartment",
         seperateExitPoint = false,
@@ -94,7 +94,7 @@ Config.Apartments = {
         },
     },
 
-    {
+    ['TinselTowers'] = {
         label = "Tinsel Towers", 
         type = "Apartment",
         seperateExitPoint = true,
@@ -111,7 +111,7 @@ Config.Apartments = {
         },
     },
 
-    {
+    ['EclipseTowers'] = {
         label = "Eclipse Towers", 
         type = "Apartment",
         seperateExitPoint = true,

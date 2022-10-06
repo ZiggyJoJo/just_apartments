@@ -100,7 +100,7 @@ AddEventHandler('bt-polyzone:enter', function(name)
             if currentApartment == 'AltaStreetAppts' then 
                 lib.showTextUI("[E] Apartments", {icon = "fa-solid fa-building"})
                 TriggerEvent('just_apartments:enterExitApartment', v.exit, "Entering")
-            else 
+            else
                 TriggerServerEvent('just_apartments:getOwnedApartments', v.zone.name, v.exit)
             end
             break
@@ -264,7 +264,7 @@ AddEventHandler('just_apartments:keyEntryMenu', function (apartments, data)
                 description = "Enter",
                 event = 'just_apartments:enterExitApartment',
                 args = {
-                    coords = data.coords,
+                    coords = Config.Apartments[currentApartment].exit,
                     enteringExiting = "Entering",
                     id = data.id
                 }
@@ -281,7 +281,7 @@ AddEventHandler('just_apartments:keyEntryMenu', function (apartments, data)
                 serverEvent = 'just_apartments:getBuildingApartments',
                 args = {
                     currentApartment = currentApartment,
-                    coords = data.coords,
+                    coords = Config.Apartments[currentApartment].exit,
                     id = data.id,
                     ring = true
                 }
@@ -400,7 +400,7 @@ AddEventHandler('just_apartments:leaseMenu', function (data)
             id = 'just_apartments:leaseMenu',
             title =  "Change Lease",
             menu = "just_apartments:keyEntryMenu",
-            options = {{             
+            options = {{
                 title = "Cancel Lease",
                 description = "Renews: "..string.sub(data.renewDate,5,6).."/"..string.sub(data.renewDate,7,8).."/"..string.sub(data.renewDate,1,4).." For $"..comma_value(data.price),
                 event = 'just_apartments:changeLease',
@@ -410,12 +410,12 @@ AddEventHandler('just_apartments:leaseMenu', function (data)
                 }
             }}
         })
-    else 
+    elseif data.renewDate ~= nil then
         lib.registerContext({
             id = 'just_apartments:leaseMenu',
             title =  "Change Lease",
             menu = "just_apartments:keyEntryMenu",
-            options = {{           
+            options = {{
                 title = "Resume Lease $"..comma_value(data.price),
                 description = "Lease Ends: "..string.sub(data.renewDate,5,6).."/"..string.sub(data.renewDate,7,8).."/"..string.sub(data.renewDate,1,4),
                 event = 'just_apartments:changeLease',
@@ -436,9 +436,9 @@ end)
 RegisterNetEvent('just_apartments:purchaseApartment')
 AddEventHandler('just_apartments:purchaseApartment', function (currentApartment)
     TriggerServerEvent('just_apartments:purchaseApartment', currentApartment.currentApartment, currentApartmentLabel)
-    atDoor = false 
+    atDoor = false
     Citizen.Wait(500)
-    atDoor = true 
+    atDoor = true
     TriggerServerEvent('just_apartments:getOwnedApartments', currentApartment.currentApartment, currentApartment.exit)
 end)
 
@@ -446,7 +446,7 @@ RegisterNetEvent('just_apartments:exitMenu')
 AddEventHandler('just_apartments:exitMenu', function (coords, playersAtDoor, exitDoor, keyholders)
     local playersAtDoor = playersAtDoor
     Citizen.CreateThread(function ()
-        local coords = coords 
+        local coords = coords
         lib.showTextUI("[E] Door", {icon = "fa-solid fa-door-open"})
         while atDoor or atExit do
             if IsControlJustReleased(0, 54) then
@@ -462,7 +462,7 @@ AddEventHandler('just_apartments:exitMenu', function (coords, playersAtDoor, exi
                     },
                 }
 
-                if keyholders ~= nil then
+                if #keyholders > 0 then
                     table.insert(options,  {
                         title = "Manage Keyholders",
                         description = "Who's Got Keys",
@@ -470,7 +470,7 @@ AddEventHandler('just_apartments:exitMenu', function (coords, playersAtDoor, exi
                         event = 'just_apartments:keyholderMenu',
                         args = {
                             keyholders = keyholders
-                        }             
+                        }
                     })
                 end
                 if playersAtDoor ~= nil then
@@ -553,7 +553,7 @@ AddEventHandler('just_apartments:enterExitApartment', function (coords, entering
         currentApartmentID = coords.id
     end
 	Citizen.CreateThread(function ()
-        local coords = coords 
+        local coords = coords
         local player = PlayerPedId()
         while atDoor or atExit do
             if currentApartment == 'AltaStreetAppts' then
@@ -573,7 +573,7 @@ AddEventHandler('just_apartments:enterExitApartment', function (coords, entering
                         Citizen.Wait(500)
                         PlaySoundFrontend(-1, "OPENED", "MP_PROPERTIES_ELEVATOR_DOORS", 1);
 
-                        if enteringExiting == "Entering" then 
+                        if enteringExiting == "Entering" then
                             TriggerServerEvent('instance:set')
                             TriggerServerEvent('just_apartments:updateLastApartment', 'AltaStreetAppts')
                         else
@@ -583,7 +583,7 @@ AddEventHandler('just_apartments:enterExitApartment', function (coords, entering
                             currentApartmentID = nil
                             TriggerServerEvent('just_apartments:updateLastApartment', nil)
                         end
-                        atDoor = false 
+                        atDoor = false
                         atExit = false
                         SetEntityCoords(player, coords.x, coords.y, coords.z)
                         SetEntityHeading(player, coords.h)
@@ -607,15 +607,15 @@ AddEventHandler('just_apartments:enterExitApartment', function (coords, entering
                     Citizen.Wait(500)
                     PlaySoundFrontend(-1, "OPENED", "MP_PROPERTIES_ELEVATOR_DOORS", 1);
 
-                    if coords.enteringExiting == "Entering" then 
+                    if coords.enteringExiting == "Entering" then
                         TriggerServerEvent('instance:setNamed', currentApartment..coords.id)
                         TriggerServerEvent('just_apartments:updateLastApartment', currentApartment.." "..coords.id)
                         currentApartmentID = coords.id
-                    elseif coords.enteringExiting == "Exiting" then 
+                    elseif coords.enteringExiting == "Exiting" then
                         if state == "Viewing" then  
                             TriggerServerEvent('instance:set', 0)
                             TriggerServerEvent('just_apartments:updateLastApartment', nil)
-                        else 
+                        else
                             TriggerServerEvent('instance:setNamed', 0)
                             TriggerServerEvent('just_apartments:updateLastApartment', nil)
                         end
@@ -623,11 +623,11 @@ AddEventHandler('just_apartments:enterExitApartment', function (coords, entering
                         currentApartment = nil
                         currentApartmentLabel = nil
                         currentApartmentID = nil
-                    elseif coords.enteringExiting == "Viewing" then 
+                    elseif coords.enteringExiting == "Viewing" then
                         state = "Viewing"
                         TriggerServerEvent('instance:set')
                     end
-                    atDoor = false 
+                    atDoor = false
                     atExit = false
                     SetEntityCoords(player, coords.coords.x, coords.coords.y, coords.coords.z)
                     SetEntityHeading(player, coords.coords.h)
@@ -643,7 +643,6 @@ end)
 ----------
 
 TriggerEvent('chat:addSuggestion', '/giveApptKey', 'Give closest person keys')
-
 RegisterCommand('giveApptKey', function()
 	TriggerEvent('just_apartments:givePlayerKeys')
 end, false)

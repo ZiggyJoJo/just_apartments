@@ -91,15 +91,16 @@ local playersAtDoor = {}
 
 RegisterServerEvent("just_apartments:purchaseApartment")
 AddEventHandler("just_apartments:purchaseApartment", function(apartment, currentApartmentLabel)
-	local xPlayer = ESX.GetPlayerFromId(source)
+    local _source = source
+	local xPlayer = ESX.GetPlayerFromId(_source)
     local Price = MySQL.scalar.await('SELECT Price FROM apartments WHERE Name = @Name', {['@Name'] = apartment})
     local rentLength = MySQL.scalar.await('SELECT rentLength FROM apartments WHERE Name = @Name', {['@Name'] = apartment})
-    local balance 
+    local balance
 
     if Config.usePEFCL then
-        balance = exports.pefcl:getDefaultAccountBalance(source)
+        balance = exports.pefcl:getDefaultAccountBalance(_source)
         balance = balance.data
-    else 
+    else
         balance = xPlayer.getAccount('bank').money
     end
 
@@ -115,7 +116,7 @@ AddEventHandler("just_apartments:purchaseApartment", function(apartment, current
             local lastPayment = MySQL.update.await('UPDATE owned_apartments SET renew = @renew WHERE id = @id', {['@id'] = oldLease, ['@renew'] = tonumber(1)})
             local renewDateChange = MySQL.update.await('UPDATE owned_apartments SET expired = @expired WHERE id = @id', {['@id'] = oldLease, ['@expired'] = tonumber(0)})
             if Config.usePEFCL then
-                exports.pefcl:removeBankBalance(source, { amount = Price, message = (currentApartmentLabel.." lease renewal") })
+                exports.pefcl:removeBankBalance(_source, { amount = Price, message = (currentApartmentLabel.." lease renewal") })
             else 
                 xPlayer.removeAccountMoney('bank', Price)
             end
@@ -131,7 +132,7 @@ AddEventHandler("just_apartments:purchaseApartment", function(apartment, current
                 exports.ox_inventory:RegisterStash((apartment..id.."Stash"), (apartment.." Stash - "..id), 50, 100000, id)
             end
             if Config.usePEFCL then
-                exports.pefcl:removeBankBalance(source, { amount = Price, message = ("Apartment lease at "..currentApartmentLabel) })
+                exports.pefcl:removeBankBalance(_source, { amount = Price, message = ("Apartment lease at "..currentApartmentLabel) })
             else 
                 xPlayer.removeAccountMoney('bank', Price)
             end
