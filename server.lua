@@ -127,9 +127,12 @@ AddEventHandler("just_apartments:purchaseApartment", function(apartment, current
                 ['@renewDate'] = os.date("%Y%m%d",renewDate),
                 ['@owner'] = xPlayer.identifier
             })
-            local id = MySQL.scalar.await('SELECT id FROM owned_apartments WHERE apartment = @apartment AND owner = @owner', {['@apartment'] = apartment, ['@owner'] = xPlayer.identifier})
             if Config.UseOxInventory then
-                exports.ox_inventory:RegisterStash((apartment..id.."Stash"), (apartment.." Stash - "..id), 50, 100000, id)
+                MySQL.scalar('SELECT id FROM owned_apartments WHERE apartment = @apartment AND owner = @owner', {['@apartment'] = apartment, ['@owner'] = xPlayer.identifier}, function(id)
+                    if id then
+                        exports.ox_inventory:RegisterStash((apartment..id.."Stash"), (apartment.." Stash - "..id), 50, 100000, id)
+                    end
+                end)
             end
             if Config.usePEFCL then
                 exports.pefcl:removeBankBalance(_source, { amount = Price, message = ("Apartment lease at "..currentApartmentLabel) })
