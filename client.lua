@@ -200,7 +200,11 @@ AddEventHandler('just_apartments:useWardrobe', function ()
 		Citizen.Wait(0)
 		if IsControlPressed(1, 38) then
             Citizen.Wait(500)
-            TriggerEvent('fivem-appearance:useWardrobe')
+            if Config.BrpFivemAppearance then
+                TriggerEvent('fivem-appearance:useWardrobe')
+            elseif Config.ox_appearance then
+                TriggerEvent('ox_appearance:wardrobe')
+            end
 		end
 	end
 end)

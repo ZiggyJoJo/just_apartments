@@ -2,7 +2,8 @@ Config = {}
 
 Config.UseOxInventory = true
 
-Config.BrpFivemAppearance = true
+Config.BrpFivemAppearance = false        -- Must choose one or the other if 
+Config.ox_appearance = true
 
 Config.usePEFCL = false
 
@@ -16,7 +17,7 @@ Config.Apartments = {
         exitPoint = {x = -266.36004638672, y = -955.48510742188, z = 31.227432250977, h = 118.27416992188},
         stash = {x = -268.89364624023, y = -958.93017578125, z = 21.917707443237, h = 60.0},
         wardrobe = {x = -267.76, y = -956.6, z = 21.92, l = 2.4, w = 2.8, h = 0, minZ = 20.9, maxZ = 23.22}, 
-        zone = {name = 'AltaStreetAppts', x = -266.8, y = -959.7, z = 21.9, l = 8.7, w = 5.4, h = 0, minZ = 19, maxZ = 23}, 
+        zone = {name = 'AltaStreetAppts', x = -266.8, y = -959.7, z = 21.9, l = 8.7, w = 5.4, h = 0, minZ = 19, maxZ = 23},
         blip = {
             scale = 0.7,
             sprite = 475,
