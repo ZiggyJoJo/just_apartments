@@ -1,6 +1,6 @@
 # Just Apartments
  
-Video Demo https://youtu.be/9zb6EJ8KSi8
+<br><div><h4 align='center'><a href='https://youtu.be/9zb6EJ8KSi8'>Video Demo</a></h4></div><br>
 
 # Dependencies
 
@@ -28,6 +28,9 @@ Adds apartments that can be rented by players the cost and rent length can be ch
 
 # Support Me
 
-https://www.buymeacoffee.com/ZiggyJoJo
+<br><div><h4 align='left'><a href='https://www.buymeacoffee.com/ZiggyJoJo'>Buy Me A Coffee</a></h4></div><br>
 
-https://ziggys-scripts.tebex.io
+<br><div><h4 align='left'><a href='https://ziggys-scripts.tebex.io'>Tebex</a></h4></div><br>
+
+
+<br><div><h4 align='center'><a href='https://discord.gg/AWxBT49HR5'>Discord Server</a></h4></div><br>
