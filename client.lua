@@ -1,10 +1,13 @@
+local spot
 local atDoor
 local atExit
+local ownedGarage
+local keyedGarages
 local state = nil
-local Instanced = false
+local visible = false
+local passedCheck = false
 local InWardrobe = false
 local AtStash = false
-local allMyOutfits   = {}
 local currentApartment = nil
 local currentApartmentLabel = nil
 local currentApartmentID = nil
@@ -41,7 +44,7 @@ function comma_value(amount)
 		formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)", '%1,%2')
 		if (k==0) then
 			break
-		end	
+		end
 	end
 	return formatted
 end
@@ -135,15 +138,15 @@ AddEventHandler('bt-polyzone:enter', function(name)
         if v.zone.name.."Exit" == name then
             currentApartment = v.zone.name
             currentApartmentLabel = v.label
-            atExit = true 
-            if v.seperateExitPoint == true then 
+            atExit = true
+            if v.seperateExitPoint == true then
                 if currentApartment == 'AltaStreetAppts' then 
                     lib.showTextUI("[E] Exit Apartment", {icon = "fa-solid fa-door-open"})
                     TriggerEvent('just_apartments:enterExitApartment', v.exitPoint, "Exiting")
                 else
                     TriggerServerEvent('just_apartments:getPlayersAtDoor', v.exitPoint, v.zone.name, currentApartmentID, v.exit)
                 end
-            else 
+            else
                 TriggerServerEvent('just_apartments:getPlayersAtDoor', v.entrance, v.zone.name, currentApartmentID, v.exit)
             end
             break
@@ -153,37 +156,12 @@ end)
 
 RegisterNetEvent('bt-polyzone:exit')
 AddEventHandler('bt-polyzone:exit', function(name)
-    for k, v in pairs(Config.Apartments) do
-        if v.zone.name.."Entrance" == name then
-            atDoor = false
-            lib.hideTextUI()
-            break
-        end
-    end
-    if Config.BrpFivemAppearance then
-        for k, v in pairs(Config.Apartments) do
-            if v.zone.name.."Wardrobe" == name then
-                InWardrobe = false
-                lib.hideTextUI()
-                break
-            end
-        end
-    end
-    if Config.UseOxInventory then
-        for k, v in pairs(Config.Apartments) do
-            if v.zone.name.."Stash" == name then
-                AtStash = false
-                lib.hideTextUI()
-                break
-            end
-        end
-    end
-    for k, v in pairs(Config.Apartments) do
-        if v.zone.name.."Exit" == name then
-            atExit = false
-            lib.hideTextUI()
-            break
-        end
+    if currentApartment ~= nil then
+        atDoor = false
+        InWardrobe = false
+        AtStash = false
+        atExit = false
+        lib.hideTextUI()
     end
 end)
 
@@ -466,16 +444,18 @@ AddEventHandler('just_apartments:exitMenu', function (coords, playersAtDoor, exi
                     },
                 }
 
-                if #keyholders > 0 then
-                    table.insert(options,  {
-                        title = "Manage Keyholders",
-                        description = "Who's Got Keys",
-                        arrow = true,
-                        event = 'just_apartments:keyholderMenu',
-                        args = {
-                            keyholders = keyholders
-                        }
-                    })
+                if keyholders ~= nil then
+                    if #keyholders > 0 then
+                        table.insert(options,  {
+                            title = "Manage Keyholders",
+                            description = "Who's Got Keys",
+                            arrow = true,
+                            event = 'just_apartments:keyholderMenu',
+                            args = {
+                                keyholders = keyholders
+                            }
+                        })
+                    end
                 end
                 if playersAtDoor ~= nil then
                     for i=1, #playersAtDoor.people, 1 do 
@@ -591,6 +571,7 @@ AddEventHandler('just_apartments:enterExitApartment', function (coords, entering
                         atExit = false
                         SetEntityCoords(player, coords.x, coords.y, coords.z)
                         SetEntityHeading(player, coords.h)
+                        lib.hideTextUI()
                     end
                 end
             else 
@@ -635,6 +616,7 @@ AddEventHandler('just_apartments:enterExitApartment', function (coords, entering
                     atExit = false
                     SetEntityCoords(player, coords.coords.x, coords.coords.y, coords.coords.z)
                     SetEntityHeading(player, coords.coords.h)
+                    lib.hideTextUI()
                 end
             end
             Citizen.Wait(0)
@@ -646,8 +628,8 @@ end)
 -- Keys --
 ----------
 
-TriggerEvent('chat:addSuggestion', '/giveApptKey', 'Give closest person keys')
-RegisterCommand('giveApptKey', function()
+TriggerEvent('chat:addSuggestion', '/giveapptkey', 'Give closest person keys')
+RegisterCommand('giveapptkey', function()
 	TriggerEvent('just_apartments:givePlayerKeys')
 end, false)
 
@@ -719,4 +701,226 @@ AddEventHandler('just_apartments:spawnInProperty', function (property, ApptID)
         TriggerServerEvent('instance:setNamed', property..ApptID)
         currentApartmentID = ApptID
     end
+end)
+
+------------
+-- Garage --
+------------
+
+function Split(s, delimiter)
+    if s ~= nil then
+        result = {};
+        for match in (s..delimiter):gmatch("(.-)"..delimiter) do
+            table.insert(result, match);
+        end
+        return result;
+    end
+end
+
+function onEnter(self)
+end
+
+function onExit(self)
+	if self.type == "garage" then
+		lib.hideTextUI()
+		currentApartment = nil
+		Citizen.Wait(100)
+		visible = false
+		passedCheck = false
+	end
+end
+
+function insideZone(self)
+	local ped = PlayerPedId()
+	local inVehicle = GetVehiclePedIsIn(ped, false)
+	local apartment = Split(self.name, " ")
+    currentApartment = apartment[1]
+    spot = apartment[3]
+
+    if self.type == "garage" then
+        if passedCheck then
+            if not visible then
+                if inVehicle ~= 0 then
+                    visible = true
+                    lib.showTextUI("[E] Store Vehicle", {icon = "fa-solid fa-car"})
+                else
+                    visible = true
+                    lib.showTextUI("[E] Open Garage", {icon = "fa-solid fa-car"})
+                end
+            end
+            if IsControlJustReleased(0, 54) then
+                if inVehicle ~= 0 then
+                    TriggerEvent('just_apartments:viewGarages', currentApartment, 'just_apartments:StoreVehicle', inVehicle, false)
+                    passedCheck = false
+                else
+                    TriggerEvent('just_apartments:viewGarages', currentApartment, 'just_apartments:GetOwnedVehicles', nil, true)
+                    passedCheck = false
+                end
+            end
+        else
+	        Citizen.Wait(500)
+            ownedGarage = lib.callback.await('just_apartments:garageCheck', false, currentApartment)
+            keyedGarages = lib.callback.await('just_apartments:garageKeyCheck', false, currentApartment)
+            if ownedGarage ~= nil then
+                for i=1, #ownedGarage, 1 do
+                    if ownedGarage[i].apartment == currentApartment then
+                        passedCheck = true
+                        break
+                    end
+                end
+            end
+            if keyedGarages ~= nil then
+                for i=1, #keyedGarages, 1 do
+                    if keyedGarages[i].appt_name == currentApartment then
+                        passedCheck = true
+                        break
+                    end
+                end
+            end
+        end
+    end
+end
+
+for k, v in pairs(Config.Apartments) do
+	if v.parking ~= nil and Config.useGarages then
+		for k2, v2 in pairs(v.parking) do
+			lib.zones.box({
+				coords = vec3(v2.x, v2.y, v2.z),
+				size = vec3(3, 5.4, 4),
+				rotation = v2.h,
+				debug = false,
+				inside = insideZone,
+				onEnter = onEnter,
+				onExit = onExit,
+				name = k.." parking "..k2,
+				type = "garage",
+			})
+		end
+	end
+end
+
+RegisterNetEvent('just_apartments:viewGarages')
+AddEventHandler('just_apartments:viewGarages', function (currentApartment, event, vehicle, arrow)
+    local options = {}
+    if ownedGarage ~= nil then
+        for i = 1, #ownedGarage do
+            local data = ownedGarage[i]
+            table.insert(options, {
+                title = "Appt: "..data.id.." Garage",
+                event = event,
+                arrow = arrow,
+                args = {id = data.id, name = data.apartment, vehicle = vehicle},
+            })
+        end
+    end
+    if keyedGarages ~= nil then
+        for i = 1, #keyedGarages do
+            local data = keyedGarages[i]
+            table.insert(options, {
+                title = "Appt: "..data.appt_id.." Garage",
+                event = event,
+                arrow = arrow,
+                args = {id = data.appt_id, name = data.appt_name, vehicle = vehicle},
+            })
+        end
+    end
+    lib.registerContext({
+        id = 'just_apartments:apptGarageMenu',
+		title = Config.Apartments[currentApartment].label.." Garage",
+        options = options
+    })
+    lib.showContext('just_apartments:apptGarageMenu')
+end)
+
+RegisterNetEvent('just_apartments:GetOwnedVehicles')
+AddEventHandler('just_apartments:GetOwnedVehicles', function (data)
+    local vehicles = lib.callback.await('just_apartments:GetVehicles', false, data.name.."appt"..data.id)
+    local options = {}
+    if not vehicles then
+        lib.registerContext({
+            id = 'just_apartments:GarageMenu',
+            menu = 'just_apartments:apptGarageMenu',
+            title = Config.Apartments[currentApartment].label.." Garage",
+            options = {{title = "No vehicles parked"}}
+        })
+        return lib.showContext('just_apartments:GarageMenu')
+    else
+        for i = 1, #vehicles do
+            local data = vehicles[i]
+            local vehicleMake = GetLabelText(GetMakeNameFromVehicleModel(data.vehicle.model))
+            local vehicleModel = GetLabelText(GetDisplayNameFromVehicleModel(data.vehicle.model))
+            local vehicleTitle = vehicleMake .. ' ' .. vehicleModel
+            local stored = data.stored
+            print(vehicleTitle, data.plate, stored)
+            if stored then
+                table.insert(options, {
+                    title = vehicleTitle,
+                    event = 'just_apartments:VehicleMenu',
+                    arrow = true,
+                    args = {name = vehicleTitle, plate = data.plate, model = vehicleModel, vehicle = data.vehicle},
+                    metadata = {
+                        {label = 'Plate', value = data.plate},
+                    }
+                })
+            end
+        end
+        lib.registerContext({
+            id = 'just_apartments:GarageMenu',
+            menu = 'just_apartments:apptGarageMenu',
+            title = Config.Apartments[currentApartment].label.." Garage",
+            options = options
+        })
+    end
+    lib.showContext('just_apartments:GarageMenu')
+end)
+
+RegisterNetEvent('just_apartments:VehicleMenu')
+AddEventHandler('just_apartments:VehicleMenu', function (data)
+    lib.registerContext({
+        id = 'just_apartments:VehicleMenu',
+        title = data.name,
+        menu = 'just_apartments:GarageMenu',
+        options = {
+            {
+				title = 'Take out vehicle',
+                event = 'just_apartments:RequestVehicle',
+                args = {
+                    vehicle = data.vehicle,
+                    type = 'garage'
+                }
+            }
+        }
+    })
+
+    lib.showContext('just_apartments:VehicleMenu')
+end)
+
+local function spawnVehicle(data, spawn)
+    lib.requestModel(data.vehicle.model)
+    TriggerServerEvent('just_apartments:SpawnVehicle', data.vehicle.model, data.vehicle.plate, spawn)
+	lib.hideTextUI()
+	Citizen.Wait(250)
+	visible = false
+end
+
+RegisterNetEvent('just_apartments:RequestVehicle')
+AddEventHandler('just_apartments:RequestVehicle', function (data)
+	local spawn = Config.Apartments[currentApartment].parking[spot]
+	if ESX.Game.IsSpawnPointClear(vector3(spawn.x, spawn.y, spawn.z), 1.0) then
+		return spawnVehicle(data, spawn)
+	end
+end)
+
+RegisterNetEvent('just_apartments:StoreVehicle')
+AddEventHandler('just_apartments:StoreVehicle', function (data)
+    local vehicle = data.vehicle
+    local vehPlate = GetVehicleNumberPlateText(vehicle)
+    local vehProps = lib.getVehicleProperties(vehicle)
+    local isOwned = lib.callback.await('just_apartments:CheckOwnership', false, vehPlate)
+	if isOwned and currentApartment ~= nil then
+		TriggerServerEvent('just_apartments:SaveVehicle', vehProps, vehPlate, VehToNet(vehicle), data.name.."appt"..data.id)
+		lib.hideTextUI()
+		Citizen.Wait(250)
+		visible = false
+	end
 end)

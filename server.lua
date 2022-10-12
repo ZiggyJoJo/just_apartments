@@ -382,7 +382,7 @@ AddEventHandler('onServerResourceStart', function(resourceName)
         MySQL.query('SELECT * FROM owned_apartments ', function(apartments)
             for i=1, #apartments, 1 do
                 exports.ox_inventory:RegisterStash((apartments[i].apartment..apartments[i].id.."Stash"), (apartments[i].apartment.." Stash - "..apartments[i].id), 50, 100000, apartments[i].id)
-            end    
+            end
         end)
     end
 end)
@@ -423,5 +423,108 @@ AddEventHandler("just_apartments:getLastApartment", function()
         if apartment_id ~= nil then
             TriggerClientEvent('just_apartments:spawnInProperty', _source, apartment_id[1], apartment_id[2])
         end
+    end
+end)
+
+------------
+-- Garage --
+------------
+
+lib.callback.register('just_apartments:GetVehicles', function(source, garage)
+    local vehicles = {}
+    local results = MySQL.Sync.fetchAll("SELECT `plate`, `vehicle`, `stored`, `garage`, `job` FROM `owned_vehicles` WHERE `garage` = @garage", {
+        ['@garage'] = garage
+    })
+    if results[1] ~= nil then
+        for i = 1, #results do
+            local result = results[i]
+            local veh = json.decode(result.vehicle)
+            vehicles[#vehicles+1] = {plate = result.plate, vehicle = veh, stored = result.stored, garage = result.garage}
+        end
+        return vehicles
+    end
+end)
+
+RegisterServerEvent("just_apartments:SpawnVehicle")
+AddEventHandler("just_apartments:SpawnVehicle", function(model, plate, coords, heading)
+    if type(model) == 'string' then model = GetHashKey(model) end
+    local xPlayer = ESX.GetPlayerFromId(source)
+    local vehicles = GetAllVehicles()
+    plate = ESX.Math.Trim(plate)
+    for i = 1, #vehicles do
+        if ESX.Math.Trim(GetVehicleNumberPlateText(vehicles[i])) == plate then
+            if GetVehiclePetrolTankHealth(vehicle) > 0 and GetVehicleBodyHealth(vehicle) > 0 then
+            return xPlayer.showNotification(Locale('vehicle_already_exists')) end
+        end
+    end
+    MySQL.Async.fetchAll('SELECT vehicle, plate, garage FROM `owned_vehicles` WHERE plate = @plate', {['@plate'] = ESX.Math.Trim(plate)}, function(result)
+        if result[1] then
+            CreateThread(function()
+                local entity = Citizen.InvokeNative(`CREATE_AUTOMOBILE`, model, coords.x, coords.y, coords.z, coords.h)
+                SetEntityHeading(entity, coords.h)
+                local ped = GetPedInVehicleSeat(entity, -1)
+                if ped > 0 then
+                    for i = -1, 6 do
+                        ped = GetPedInVehicleSeat(entity, i)
+                        local popType = GetEntityPopulationType(ped)
+                        if popType <= 5 or popType >= 1 then
+                            DeleteEntity(ped)
+                        end
+                    end
+                end
+                local playerPed = GetPlayerPed(xPlayer.source)
+                local timer = GetGameTimer()
+                while GetVehiclePedIsIn(playerPed) ~= entity do
+                    Wait(10)
+                    SetPedIntoVehicle(playerPed, entity, -1)
+                    if timer - GetGameTimer() > 15000 then
+                        break
+                    end
+                end
+                local ent = Entity(entity)
+                ent.state.vehicleData = result[1]
+            end)
+        end
+    end)
+end)
+
+RegisterServerEvent("just_apartments:SaveVehicle")
+AddEventHandler("just_apartments:SaveVehicle", function(vehicle, plate, ent, garage)
+    MySQL.Async.execute('UPDATE `owned_vehicles` SET `vehicle` = @vehicle, `garage` = @garage, `last_garage` = @garage, `stored` = @stored WHERE `plate` = @plate', {
+        ['@vehicle'] = json.encode(vehicle),
+        ['@plate'] = ESX.Math.Trim(plate),
+        ['@stored'] = 1,
+        ['@garage'] = garage
+    })
+    local ent = NetworkGetEntityFromNetworkId(ent)
+    DeleteEntity(ent)
+end)
+
+lib.callback.register('just_apartments:CheckOwnership', function(source, plate)
+    local result = MySQL.scalar.await('SELECT vehicle FROM owned_vehicles WHERE plate = ?', {plate})
+    if result ~= nil then
+        return true
+    else
+        -- Player tried to cheat
+        TriggerClientEvent("just_apartments:notification", source, "Wait this is a local's vehicle", nil, "error")
+        return false
+    end
+end)
+
+lib.callback.register('just_apartments:garageCheck', function(source, apartment)
+    local _source = source
+	local xPlayer = ESX.GetPlayerFromId(_source)
+	local ownedapartments = MySQL.Sync.fetchAll('SELECT id, apartment, expired FROM owned_apartments WHERE owner = @owner AND apartment = @apartment AND expired = @expired', {['@owner'] = xPlayer.identifier, ['@apartment'] = apartment, ['@expired'] = 0})
+    if ownedapartments ~= nil then
+        return ownedapartments
+    end
+end)
+
+lib.callback.register('just_apartments:garageKeyCheck', function(source, apartment)
+    local _source = source
+	local xPlayer = ESX.GetPlayerFromId(_source)
+	local keyedApartments = MySQL.Sync.fetchAll('SELECT appt_id, appt_name FROM apartment_keys WHERE appt_name = @appt_name AND player = @player', {['@appt_name'] = apartment,['@player'] = xPlayer.identifier})
+    if keyedApartments ~= nil then
+        return keyedApartments
     end
 end)

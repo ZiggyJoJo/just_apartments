@@ -42,3 +42,15 @@ CREATE TABLE IF NOT EXISTS `owned_apartments` (
 ALTER TABLE `users`
 	ADD `last_property` varchar(50) DEFAULT NULL,
 ;
+
+
+
+
+-- Only needed if using the shared garages and not using luke_garages           https://github.com/LukeWasTakenn/luke_garages
+
+-- If you have a separate column for your stored vehicles simply replace the instances in the server file with your columns label
+
+ALTER TABLE `owned_vehicles`
+	ADD `garage` varchar(50) DEFAULT NULL,
+	ADD `last_garage` varchar(50) DEFAULT NULL,
+;
