@@ -141,7 +141,7 @@ AddEventHandler("just_apartments:purchaseApartment", function(apartment, current
             end
         end
     else
-        -- print("not enough money")
+        TriggerClientEvent("just_apartments:notification", _source , 'Not enough money', nil, "error")
     end
 end)
 
@@ -150,8 +150,7 @@ AddEventHandler("just_apartments:changeLease", function(data)
     local lastPayment = MySQL.update.await('UPDATE owned_apartments SET renew = @renew WHERE id = @id', {['@id'] = data.id, ['@renew'] = tonumber(data.renew)})
 end)
 
-RegisterServerEvent("just_apartments:getOwnedApartments")
-AddEventHandler("just_apartments:getOwnedApartments", function(apartment, coords)
+lib.callback.register('just_apartments:getOwnedApartments', function(source, apartment, coords)
     local _source = source
 	local xPlayer = ESX.GetPlayerFromId(_source)
     local id = MySQL.scalar.await('SELECT id FROM owned_apartments WHERE owner = @owner AND apartment = @apartment', { ['@owner'] = xPlayer.identifier, ['@apartment'] = apartment })
@@ -161,35 +160,26 @@ AddEventHandler("just_apartments:getOwnedApartments", function(apartment, coords
     if id ~= nil and expired == 0 then
         local renew = MySQL.scalar.await('SELECT renew FROM owned_apartments WHERE id = @id', {['@id'] = id})
         local data = {coords = coords, id = id, price = price, renewDate = renewDate, renew = renew}
-        TriggerClientEvent('just_apartments:entranceMenu', _source, data)
+        return data
     else
         local id = false
         local data = {coords = coords, id = id, price = price, renewDate = renewDate}
-        TriggerClientEvent('just_apartments:entranceMenu', _source, data)
+        return data
     end
 end)
 
-RegisterServerEvent("just_apartments:checkApptOwnership")
-AddEventHandler("just_apartments:checkApptOwnership", function(apartment, type, appt_id)
+lib.callback.register('just_apartments:checkApptOwnership', function(source, apartment, appt_id)
 	local xPlayer = ESX.GetPlayerFromId(source)
 	local _source = source
 
 	local id = MySQL.scalar.await('SELECT id FROM owned_apartments WHERE owner = @owner AND apartment = @apartment', {['@owner'] = xPlayer.identifier,['@apartment'] = apartment})
     if id ~= nil then
-        if type == "Wardrobe" then
-            TriggerClientEvent('just_apartments:enteredWardrobe', _source)
-        elseif type == "Stash" then
-            TriggerClientEvent('just_apartments:enteredStash', _source, id, apartment)
-        end
+        return true
     else
         local id2 = MySQL.scalar.await('SELECT id FROM apartment_keys WHERE appt_id = @appt_id AND player = @player', {['@appt_id'] = appt_id,['@player'] = xPlayer.identifier})
         if id2 ~= nil then
             -- exports.xng_parsingtable:ParsingTable_sv(id2)
-            if type == "Wardrobe" then
-                TriggerClientEvent('just_apartments:enteredWardrobe', _source)
-            elseif type == "Stash" then
-                TriggerClientEvent('just_apartments:enteredStash', _source, appt_id, apartment)
-            end
+            return true
         end
     end
 end)
@@ -210,7 +200,6 @@ AddEventHandler("just_apartments:alertOwner", function(data)
         if v.name == (data.apartment..data.id) then
             for k2,v2 in pairs(Namedinstances[k].people) do
                 TriggerClientEvent("just_apartments:notification", _source , 'Someones at the door', "Go buzz them in", "info")
-                -- TriggerClientEvent("swt_notifications:Icon",v2 , 'Someones at the door',"top-right",5000,"blue-10","white",true,"mdi-doorbell")
             end
         end
     end
@@ -227,23 +216,18 @@ AddEventHandler("just_apartments:getBuildingApartments", function(data)
     end)
 end)
 
-RegisterServerEvent("just_apartments:getPlayersAtDoor")
-AddEventHandler("just_apartments:getPlayersAtDoor", function(coords, name, id, exit)
+lib.callback.register('just_apartments:getPlayersAtDoor', function(source, coords, name, id, exit)
     local _source = source
     local xPlayer = ESX.GetPlayerFromId(_source)
-    if id == nil then 
+    if id == nil then
         TriggerClientEvent('just_apartments:exitMenu', _source, coords)
     else
         local id2 = MySQL.scalar.await('SELECT id FROM apartment_keys WHERE appt_id = @appt_id AND player = @player', {['@appt_id'] = id,['@player'] = xPlayer.identifier})
-
         if id2 ~= nil then
-            TriggerClientEvent('just_apartments:exitMenu', _source, coords, playersAtDoor[name..id], exit)
+            return coords, playersAtDoor[name..id], exit
         else
-            MySQL.query('SELECT * FROM apartment_keys WHERE appt_id = @appt_id',{
-                ['@appt_id'] = id
-            }, function(keyholders)
-                TriggerClientEvent('just_apartments:exitMenu', _source, coords, playersAtDoor[name..id], exit, keyholders)
-            end)
+            local keyholders = MySQL.query.await('SELECT * FROM apartment_keys WHERE appt_id = @appt_id', {['@appt_id'] = id})
+            return coords, playersAtDoor[name..id], exit, keyholders
         end
     end
 end)
@@ -330,7 +314,6 @@ AddEventHandler("just_apartments:giveKeys", function(data)
 	local xPlayer = ESX.GetPlayerFromId(source)
     local xTarget = ESX.GetPlayerFromId(data.target)
     local hasKeys = MySQL.scalar.await('SELECT id FROM apartment_keys WHERE appt_id = @appt_id AND player = @player', {['@appt_id'] = data.appt_id, ['@player'] = xTarget.identifier})
-
     -- exports.xng_parsingtable:ParsingTable_sv(xTarget)
     if hasKeys == nil then
         MySQL.insert('INSERT INTO `apartment_keys` (`appt_id`, `appt_name`, `player`, `player_name`, `appt_owner`) VALUES (@appt_id, @appt_name, @player, @player_name, @appt_owner)', {
@@ -341,31 +324,27 @@ AddEventHandler("just_apartments:giveKeys", function(data)
             ['@appt_owner'] = xPlayer.identifier
         })
         TriggerClientEvent("just_apartments:notification", _source , 'Key given', nil, "success")
-        -- TriggerClientEvent("swt_notifications:Icon", _source , 'Key given',"top-right",5000,"blue-10","white",true,"mdi-key-variant")
-        -- TriggerClientEvent("swt_notifications:Icon", data.target , 'Key recieved',"top-right",5000,"blue-10","white",true,"mdi-key-variant")
+        TriggerClientEvent("just_apartments:notification", data.target , 'Key recieved', nil, "success")
     else
         TriggerClientEvent("just_apartments:notification", _source , 'Person already has keys', nil, "error")
-        -- TriggerClientEvent("swt_notifications:Icon", _source , 'Person already has keys',"top-right",5000,"red","white",true,"mdi-alert-circle-outline")
     end
 end)
 
-RegisterServerEvent("just_apartments:getAppartmentsWithKeys")
-AddEventHandler("just_apartments:getAppartmentsWithKeys", function(data, currentApartment)
+lib.callback.register('just_apartments:getAppartmentsWithKeys', function(source, currentApartment)
     local _source = source
 	local xPlayer = ESX.GetPlayerFromId(_source)
     MySQL.query('SELECT * FROM apartment_keys WHERE appt_name = @appt_name AND player = @player',{
         ['@appt_name'] = currentApartment,
         ['@player'] = xPlayer.identifier
     }, function(apartments)
-        -- exports.xng_parsingtable:ParsingTable_sv(apartments)
-        TriggerClientEvent('just_apartments:keyEntryMenu', _source, apartments, data)
+        exports.xng_parsingtable:ParsingTable_sv(apartments)
+        return apartments
     end)
 end)
 
 RegisterServerEvent("just_apartments:removeApartmentKeys")
 AddEventHandler("just_apartments:removeApartmentKeys", function(data)
-    local id = data.id
-    MySQL.update('DELETE FROM apartment_keys WHERE id = @id', {['@id'] = id}, function(affectedRows)
+    MySQL.update('DELETE FROM apartment_keys WHERE id = @id', {['@id'] = data.id}, function(affectedRows)
         if affectedRows then
             print(affectedRows)
         end
@@ -410,7 +389,6 @@ AddEventHandler("just_apartments:updateLastApartment", function(last_property)
         ['@last_property'] = last_property
     }, function(id)
     end)
-
 end)
 
 RegisterServerEvent("just_apartments:getLastApartment")
@@ -520,10 +498,10 @@ lib.callback.register('just_apartments:garageCheck', function(source, apartment)
     end
 end)
 
-lib.callback.register('just_apartments:garageKeyCheck', function(source, apartment)
+lib.callback.register('just_apartments:keyCheck', function(source, apartment)
     local _source = source
 	local xPlayer = ESX.GetPlayerFromId(_source)
-	local keyedApartments = MySQL.Sync.fetchAll('SELECT appt_id, appt_name FROM apartment_keys WHERE appt_name = @appt_name AND player = @player', {['@appt_name'] = apartment,['@player'] = xPlayer.identifier})
+	local keyedApartments = MySQL.Sync.fetchAll('SELECT * FROM apartment_keys WHERE appt_name = @appt_name AND player = @player', {['@appt_name'] = apartment,['@player'] = xPlayer.identifier})
     if keyedApartments ~= nil then
         return keyedApartments
     end

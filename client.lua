@@ -1,12 +1,10 @@
 local spot
-local atDoor
-local atExit
 local ownedGarage
 local keyedGarages
 local state = nil
 local visible = false
 local passedCheck = false
-local InWardrobe = false
+local checkOwnership = true
 local AtStash = false
 local currentApartment = nil
 local currentApartmentLabel = nil
@@ -23,6 +21,20 @@ Citizen.CreateThread(function()
 	end
 
 	ESX.PlayerData = ESX.GetPlayerData()
+end)
+
+RegisterNetEvent('esx:onPlayerLogout')
+AddEventHandler('esx:onPlayerLogout', function()
+    spot = nil
+    ownedGarage = nil
+    keyedGarages = nil
+    state = nil
+    visible = false
+    passedCheck = false
+    AtStash = false
+    currentApartment = nil
+    currentApartmentLabel = nil
+    currentApartmentID = nil
 end)
 
 local function Blips(coords, type, label, job, blipOptions)
@@ -49,160 +61,276 @@ function comma_value(amount)
 	return formatted
 end
 
+function Split(s, delimiter)
+    if s ~= nil then
+        result = {};
+        for match in (s..delimiter):gmatch("(.-)"..delimiter) do
+            table.insert(result, match);
+        end
+        return result;
+    end
+end
+
+function onEnter(self)
+    local apartment = Split(self.name, " ")
+    if self.type == "garage" then
+        currentApartment = apartment[1]
+    elseif self.type == "entrance" then
+        currentApartment = apartment[1]
+        currentApartmentLabel = Config.Apartments[apartment[1]].label
+    elseif self.type == "wardrobe" then
+
+    elseif self.type == "stash" then
+
+    elseif self.type == "exit" then
+
+    end
+end
+
+function onExit(self)
+    checkOwnership = true
+    lib.hideTextUI()
+    Citizen.Wait(100)
+    visible = false
+    passedCheck = false
+	if self.type == "garage" then
+		currentApartment = nil
+    elseif self.type == "entrance" then
+    elseif self.type == "wardrobe" then
+
+    elseif self.type == "stash" then
+
+    elseif self.type == "exit" then
+
+	end
+end
+
+function insideZone(self)
+    if self.type == "garage" then
+        local ped = PlayerPedId()
+        local inVehicle = GetVehiclePedIsIn(ped, false)
+        local apartment = Split(self.name, " ")
+        currentApartment = apartment[1]
+        spot = apartment[3]
+        if passedCheck then
+            if not visible then
+                if inVehicle ~= 0 then
+                    visible = true
+                    lib.showTextUI("[E] Store Vehicle", {icon = "fa-solid fa-car"})
+                else
+                    visible = true
+                    lib.showTextUI("[E] Open Garage", {icon = "fa-solid fa-car"})
+                end
+            end
+            if IsControlJustReleased(0, 54) then
+                if inVehicle ~= 0 then
+                    TriggerEvent('just_apartments:viewGarages', currentApartment, 'just_apartments:StoreVehicle', inVehicle, false)
+                    passedCheck = false
+                else
+                    TriggerEvent('just_apartments:viewGarages', currentApartment, 'just_apartments:GetOwnedVehicles', nil, true)
+                    passedCheck = false
+                end
+            end
+        else
+            ownedGarage = lib.callback.await('just_apartments:garageCheck', false, currentApartment)
+            keyedGarages = lib.callback.await('just_apartments:keyCheck', false, currentApartment)
+            if ownedGarage ~= nil then
+                for i=1, #ownedGarage, 1 do
+                    if ownedGarage[i].apartment == currentApartment then
+                        passedCheck = true
+                        break
+                    end
+                end
+            end
+            if keyedGarages ~= nil then
+                for i=1, #keyedGarages, 1 do
+                    if keyedGarages[i].appt_name == currentApartment then
+                        passedCheck = true
+                        break
+                    end
+                end
+            end
+        end
+    elseif self.type == "entrance" then
+        if not visible then
+            visible = true
+            lib.showTextUI("[E] Apartments", {icon = "fa-solid fa-building"})
+        end
+        if IsControlJustReleased(0, 54) then
+            if currentApartment == 'AltaStreetAppts' then 
+                TriggerEvent('just_apartments:enterExitApartment', Config.Apartments[currentApartment].exit, "Entering")
+            else
+                lib.callback('just_apartments:getOwnedApartments', false, function(data)
+                    local apartments = lib.callback.await('just_apartments:keyCheck', false, currentApartment)
+                    print(apartments, data)
+                    -- if apartments ~= nil then
+                    --     exports.xng_parsingtable:ParsingTable_cl(apartments)
+                    -- end
+                    -- exports.xng_parsingtable:ParsingTable_cl(data)
+                    TriggerEvent('just_apartments:keyEntryMenu', apartments, data)
+                end, currentApartment, self.tpCoords)
+            end
+        end
+    elseif self.type == "wardrobe" then
+        if Config.BrpFivemAppearance or Config.ox_appearance then
+            if currentApartment == "AltaStreetAppts" then
+                if not visible then
+                    visible = true
+                    lib.showTextUI("[E] Wardrobe", {icon = "fa-solid fa-shirt"})
+                end
+                if IsControlJustReleased(0, 54) then
+                    if Config.BrpFivemAppearance then
+                        TriggerEvent('fivem-appearance:useWardrobe')
+                    elseif Config.ox_appearance then
+                        TriggerEvent('ox_appearance:wardrobe')
+                    end                end
+            else
+                if checkOwnership then
+                    passedCheck = lib.callback.await('just_apartments:checkApptOwnership', false, currentApartment, currentApartmentID)
+                end
+                if passedCheck then
+                    checkOwnership = false
+                    if not visible then
+                        visible = true
+                        lib.showTextUI("[E] Wardrobe", {icon = "fa-solid fa-shirt"})
+                    end
+                    if IsControlJustReleased(0, 54) then
+                        if Config.BrpFivemAppearance then
+                            TriggerEvent('fivem-appearance:useWardrobe')
+                        elseif Config.ox_appearance then
+                            TriggerEvent('ox_appearance:wardrobe')
+                        end
+                    end
+                end
+            end
+        end
+    elseif self.type == "stash" then
+        if Config.UseOxInventory then
+            if currentApartment == "AltaStreetAppts" then
+                if not visible then
+                    visible = true
+                    lib.showTextUI("[E] Stash", {icon = "fa-solid fa-box-open"})
+                end
+                if IsControlJustReleased(0, 54) then
+                    exports.ox_inventory:openInventory('stash', {id = ("AltaStreetAppts".."0".."Stash"), owner = 0})
+                end
+            else
+                if checkOwnership then
+                    passedCheck = lib.callback.await('just_apartments:checkApptOwnership', false, currentApartment, currentApartmentID)
+                end
+                if passedCheck then
+                    checkOwnership = false
+                    if not visible then
+                        visible = true
+                        lib.showTextUI("[E] Stash", {icon = "fa-solid fa-box-open"})
+                    end
+                    if IsControlJustReleased(0, 54) then
+                        exports.ox_inventory:openInventory('stash', {id = (currentApartment..currentApartmentID.."Stash"), owner = currentApartmentID})
+                    end
+                end
+            end
+        end
+    elseif self.type == "exit" then
+        currentApartmentLabel = Config.Apartments[currentApartment].label
+        if not visible then
+            visible = true
+            lib.showTextUI("[E] Exit Apartment", {icon = "fa-solid fa-door-open"})
+        end
+        if IsControlJustReleased(0, 54) then
+            if Config.Apartments[currentApartment].seperateExitPoint == true then
+
+                if currentApartment == 'AltaStreetAppts' then
+                    TriggerEvent('just_apartments:enterExitApartment', Config.Apartments[currentApartment].exitPoint, "Exiting")
+                else
+                    lib.callback('just_apartments:getPlayersAtDoor', false, function(coords, playersAtDoor, exit, keyholders)
+                        print(coords, playersAtDoor, exit, keyholders)
+                        TriggerEvent('just_apartments:exitMenu', coords, playersAtDoor, exit, keyholders)
+                    end, Config.Apartments[currentApartment].exitPoint, currentApartment, currentApartmentID, Config.Apartments[currentApartment].exit)
+                end
+            else
+                lib.callback('just_apartments:getPlayersAtDoor', false, function(coords, playersAtDoor, exit, keyholders)
+                    TriggerEvent('just_apartments:exitMenu', coords, playersAtDoor, exit, keyholders)
+                end, Config.Apartments[currentApartment].exitPoint, currentApartment, currentApartmentID, Config.Apartments[currentApartment].exit)
+            end
+        end
+    end
+end
 
 for k, v in pairs(Config.Apartments) do
-    exports["bt-polyzone"]:AddBoxZone(v.zone.name.."Entrance", vector3(v.entrance.x, v.entrance.y, v.entrance.z), 3, 3, {
-        name = v.zone.name.."Entrance",
-        heading = v.entrance.h,
-        debugPoly = false,
-        minZ = (v.entrance.z - 1),
-        maxZ = (v.entrance.z + 1.5),
-        }
-    )
+    lib.zones.box({
+        coords = vec3(v.entrance.x, v.entrance.y, v.entrance.z),
+        size = vec3(3, 3, 3),
+        rotation = v.entrance.h,
+        debug = false,
+        inside = insideZone,
+        onEnter = onEnter,
+        onExit = onExit,
+        name = k.." Entrance",
+        tpCoords = v.exit,
+        type = "entrance",
+    })
     if v.wardrobe ~= nil then
-        exports["bt-polyzone"]:AddBoxZone(v.zone.name.."Wardrobe", vector3(v.wardrobe.x, v.wardrobe.y, v.wardrobe.z), 3, 3, {
-            name = v.zone.name.."Wardrobe",
-            heading = v.wardrobe.h,
-            debugPoly = false,
-            minZ = (v.wardrobe.z - 1),
-            maxZ = (v.wardrobe.z + 1.5),
-            }
-        )
+        lib.zones.box({
+            coords = vec3(v.wardrobe.x, v.wardrobe.y, v.wardrobe.z),
+            size = vec3(v.wardrobe.w, v.wardrobe.l, 4),
+            rotation = v.wardrobe.h,
+            debug = false,
+            inside = insideZone,
+            onEnter = onEnter,
+            onExit = onExit,
+            name = v.zone.name.." Wardrobe",
+            type = "wardrobe",
+        })
     end
     if v.stash ~= nil then
-        exports["bt-polyzone"]:AddBoxZone(v.zone.name.."Stash", vector3(v.stash.x, v.stash.y, v.stash.z), 3, 3, {
-            name = v.zone.name.."Stash",
-            heading = v.stash.h,
-            debugPoly = false,
-            minZ = (v.stash.z - 1),
-            maxZ = (v.stash.z + 1.5),
-            }
-        )
+        lib.zones.box({
+            coords = vec3(v.stash.x, v.stash.y, v.stash.z),
+            size = vec3(3, 5.4, 4),
+            rotation = v.stash.h,
+            debug = false,
+            inside = insideZone,
+            onEnter = onEnter,
+            onExit = onExit,
+            name = v.zone.name.." Stash",
+            type = "stash",
+        })
     end
-    exports["bt-polyzone"]:AddBoxZone(v.zone.name.."Exit", vector3(v.exit.x, v.exit.y, v.exit.z), 3, 3, {
-        name = v.zone.name.."Exit",
-        heading = v.exit.h,
-        debugPoly = false,
-        minZ = (v.exit.z - 1),
-        maxZ = (v.exit.z + 1.5),
-        }
-    )
+    lib.zones.box({
+        coords = vec3(v.exit.x, v.exit.y, v.exit.z),
+        size = vec3(3, 3, 3),
+        rotation = v.exit.h,
+        debug = false,
+        inside = insideZone,
+        onEnter = onEnter,
+        onExit = onExit,
+        name = v.zone.name.." Exit",
+        tpCoords = v.entrance,
+        type = "exit",
+    })
+	if v.parking ~= nil and Config.useGarages then
+		for k2, v2 in pairs(v.parking) do
+			lib.zones.box({
+				coords = vec3(v2.x, v2.y, v2.z),
+				size = vec3(3, 5.4, 4),
+				rotation = v2.h,
+				debug = false,
+				inside = insideZone,
+				onEnter = onEnter,
+				onExit = onExit,
+				name = k.." parking "..k2,
+				type = "garage",
+			})
+		end
+	end
 
     if v.blip ~= false then
         Blips(vector3(v.entrance.x, v.entrance.y, v.entrance.z), v.type, v.label, v.job, v.blip)
     end
 end
 
-RegisterNetEvent('bt-polyzone:enter')
-AddEventHandler('bt-polyzone:enter', function(name)
-    for k, v in pairs(Config.Apartments) do
-        if v.zone.name.."Entrance" == name then
-            currentApartment = v.zone.name
-            currentApartmentLabel = v.label
-            atDoor = true 
-            if currentApartment == 'AltaStreetAppts' then 
-                lib.showTextUI("[E] Apartments", {icon = "fa-solid fa-building"})
-                TriggerEvent('just_apartments:enterExitApartment', v.exit, "Entering")
-            else
-                TriggerServerEvent('just_apartments:getOwnedApartments', v.zone.name, v.exit)
-            end
-            break
-        end
-    end
-    if Config.BrpFivemAppearance then
-        for k, v in pairs(Config.Apartments) do
-            if v.zone.name.."Wardrobe" == name then
-                if currentApartment == "AltaStreetAppts" then
-                    TriggerEvent('just_apartments:enteredWardrobe')
-                else
-                    TriggerServerEvent('just_apartments:checkApptOwnership', v.zone.name, "Wardrobe", currentApartmentID)
-                end
-                break
-            end
-        end
-    end
-    if Config.UseOxInventory then
-        for k, v in pairs(Config.Apartments) do
-            if v.zone.name.."Stash" == name then
-                AtStash = true
-                if currentApartment == "AltaStreetAppts" then
-                    TriggerEvent('just_apartments:useStash', 0, "AltaStreetAppts")
-                else
-                    TriggerServerEvent('just_apartments:checkApptOwnership', v.zone.name, "Stash", currentApartmentID)
-                end
-                break
-            end
-        end
-    end
-    for k, v in pairs(Config.Apartments) do
-        if v.zone.name.."Exit" == name then
-            currentApartment = v.zone.name
-            currentApartmentLabel = v.label
-            atExit = true
-            if v.seperateExitPoint == true then
-                if currentApartment == 'AltaStreetAppts' then 
-                    lib.showTextUI("[E] Exit Apartment", {icon = "fa-solid fa-door-open"})
-                    TriggerEvent('just_apartments:enterExitApartment', v.exitPoint, "Exiting")
-                else
-                    TriggerServerEvent('just_apartments:getPlayersAtDoor', v.exitPoint, v.zone.name, currentApartmentID, v.exit)
-                end
-            else
-                TriggerServerEvent('just_apartments:getPlayersAtDoor', v.entrance, v.zone.name, currentApartmentID, v.exit)
-            end
-            break
-        end
-    end
-end)
-
-RegisterNetEvent('bt-polyzone:exit')
-AddEventHandler('bt-polyzone:exit', function(name)
-    if currentApartment ~= nil then
-        atDoor = false
-        InWardrobe = false
-        AtStash = false
-        atExit = false
-        lib.hideTextUI()
-    end
-end)
-
-RegisterNetEvent('just_apartments:enteredWardrobe')
-AddEventHandler('just_apartments:enteredWardrobe', function ()
-    InWardrobe = true
-    lib.showTextUI("[E] Wardrobe", {icon = "fa-solid fa-shirt"})
-    TriggerEvent('just_apartments:useWardrobe')
-end)
-
-RegisterNetEvent('just_apartments:useWardrobe')
-AddEventHandler('just_apartments:useWardrobe', function ()
-    while InWardrobe do
-		Citizen.Wait(0)
-		if IsControlPressed(1, 38) then
-            Citizen.Wait(500)
-            if Config.BrpFivemAppearance then
-                TriggerEvent('fivem-appearance:useWardrobe')
-            elseif Config.ox_appearance then
-                TriggerEvent('ox_appearance:wardrobe')
-            end
-		end
-	end
-end)
-
-RegisterNetEvent('just_apartments:entranceMenu')
-AddEventHandler('just_apartments:entranceMenu', function (data)
-    Citizen.CreateThread(function ()
-        lib.showTextUI("[E] Apartments", {icon = "fa-solid fa-building"})
-        while atDoor or atExit do
-            if IsControlJustReleased(0, 54) then
-                TriggerServerEvent('just_apartments:getAppartmentsWithKeys', data, currentApartment)
-            end
-            Citizen.Wait(0)
-        end 
-    end)
-end)
-
 RegisterNetEvent('just_apartments:keyEntryMenu')
 AddEventHandler('just_apartments:keyEntryMenu', function (apartments, data)
-    local data = data 
+    local data = data
     local options = {}
     TriggerEvent('just_apartments:leaseMenu', data)
     if not data.id then
@@ -277,6 +405,7 @@ AddEventHandler('just_apartments:keyEntryMenu', function (apartments, data)
                 table.insert(options,  {
                     title = "Shared Apartments",
                     description = "It's Not Mine But It's Still Nice",
+                    arrow = true,
                     event = 'just_apartments:keyEntry',
                     args = {
                         apartments = apartments,
@@ -286,45 +415,39 @@ AddEventHandler('just_apartments:keyEntryMenu', function (apartments, data)
             end
         end
     end
-    Citizen.Wait(100)
     lib.registerContext({
         id = 'just_apartments:keyEntryMenu',
         title = currentApartmentLabel,
         options = options
     })
-	Citizen.Wait(100)
     lib.showContext('just_apartments:keyEntryMenu')
 end)
 
 RegisterNetEvent('just_apartments:keyEntry')
 AddEventHandler('just_apartments:keyEntry', function (args)
+    -- exports.xng_parsingtable:ParsingTable_cl(args)
+
     local apartments = args.apartments
-    local data = args.data 
-
+    local data = args.data
     local options = {}
-
     for i=1, #apartments, 1 do
-        if apartments[i].owner ~= identifier then
-            table.insert(options,  {
-                title = "Appt: "..apartments[i].appt_id,
-                event = "Enter",
-                event = 'just_apartments:enterExitApartment',
-                args = {
-                    coords = data.coords,
-                    enteringExiting = "Entering",
-                    id = apartments[i].appt_id
-                }
-            })
-        end
+        table.insert(options,  {
+            title = "Appt: "..apartments[i].appt_id,
+            description = "Enter",
+            event = 'just_apartments:enterExitApartment',
+            args = {
+                coords = data.coords,
+                enteringExiting = "Entering",
+                id = apartments[i].appt_id
+            }
+        })
 	end
-    Citizen.Wait(100)
     lib.registerContext({
         id = 'just_apartments:keyEntry',
         title = currentApartmentLabel.." Appts",
         menu = "just_apartments:keyEntryMenu",
         options = options
     })
-	Citizen.Wait(100)
     lib.showContext('just_apartments:keyEntry')
 end)
 
@@ -335,9 +458,8 @@ end)
 
 RegisterNetEvent('just_apartments:ringMenu')
 AddEventHandler('just_apartments:ringMenu', function (apartments, data, identifier)
-    local data = data 
+    local data = data
     local options = {}
-
     for i=1, #apartments, 1 do
         if apartments[i].owner ~= identifier then
             table.insert(options,  {
@@ -374,9 +496,7 @@ end)
 
 RegisterNetEvent('just_apartments:leaseMenu')
 AddEventHandler('just_apartments:leaseMenu', function (data)
-    local data = data 
-
-    Citizen.Wait(100)
+    local data = data
     if data.renew == 1 then
         lib.registerContext({
             id = 'just_apartments:leaseMenu',
@@ -418,80 +538,69 @@ end)
 RegisterNetEvent('just_apartments:purchaseApartment')
 AddEventHandler('just_apartments:purchaseApartment', function (currentApartment)
     TriggerServerEvent('just_apartments:purchaseApartment', currentApartment.currentApartment, currentApartmentLabel)
-    atDoor = false
-    Citizen.Wait(500)
-    atDoor = true
+    Citizen.Wait(250)
     TriggerServerEvent('just_apartments:getOwnedApartments', currentApartment.currentApartment, currentApartment.exit)
 end)
 
 RegisterNetEvent('just_apartments:exitMenu')
 AddEventHandler('just_apartments:exitMenu', function (coords, playersAtDoor, exitDoor, keyholders)
     local playersAtDoor = playersAtDoor
-    Citizen.CreateThread(function ()
-        local coords = coords
-        lib.showTextUI("[E] Door", {icon = "fa-solid fa-door-open"})
-        while atDoor or atExit do
-            if IsControlJustReleased(0, 54) then
-                local options = {
-                    {
-                        title = "Exit Apartment",
-                        description = "Go Out Into The World",
-                        event = 'just_apartments:enterExitApartment',
-                        args = {
-                            coords = coords,
-                            enteringExiting = "Exiting"
-                        }
-                    },
+
+    local options = {
+        {
+            title = "Exit Apartment",
+            description = "Go Out Into The World",
+            event = 'just_apartments:enterExitApartment',
+            args = {
+                coords = coords,
+                enteringExiting = "Exiting"
+            }
+        },
+    }
+
+    if keyholders ~= nil then
+        if #keyholders > 0 then
+            table.insert(options,  {
+                title = "Manage Keyholders",
+                description = "Who's Got Keys",
+                arrow = true,
+                event = 'just_apartments:keyholderMenu',
+                args = {
+                    keyholders = keyholders
                 }
+            })
+        end
+    end
+    if playersAtDoor ~= nil then
+        for i=1, #playersAtDoor.people, 1 do 
+            table.insert(options,  {
+                title = "Let In: "..playersAtDoor.people[i],
+                description = "It's Always Nice To Have Company",
+                arrow = true,
+                event = 'just_apartments:letPlayerIn',
+                args = {
+                    coords = exitDoor,
+                    enteringExiting = "Entering",
+                    playersAtDoor = playersAtDoor,
+                    player = playersAtDoor.people[i],
+                    id = currentApartmentID
+                }
+            })
+        end
+    end
 
-                if keyholders ~= nil then
-                    if #keyholders > 0 then
-                        table.insert(options,  {
-                            title = "Manage Keyholders",
-                            description = "Who's Got Keys",
-                            arrow = true,
-                            event = 'just_apartments:keyholderMenu',
-                            args = {
-                                keyholders = keyholders
-                            }
-                        })
-                    end
-                end
-                if playersAtDoor ~= nil then
-                    for i=1, #playersAtDoor.people, 1 do 
-                        table.insert(options,  {
-                            title = "Let In: "..playersAtDoor.people[i],
-                            description = "It's Always Nice To Have Company",
-                            arrow = true,
-                            event = 'just_apartments:letPlayerIn',
-                            args = {
-                                coords = exitDoor,
-                                enteringExiting = "Entering",
-                                playersAtDoor = playersAtDoor,
-                                player = playersAtDoor.people[i],
-                                id = currentApartmentID
-                            }
-                        })
-                    end
-                end
-
-                Citizen.Wait(100)
-                lib.registerContext({
-                    id = 'just_apartments:exitMenu',
-                    title = "Elevator",
-                    options = options
-                })
-                Citizen.Wait(100)
-                lib.showContext('just_apartments:exitMenu')
-            end
-            Citizen.Wait(0)
-        end 
-    end)
+    Citizen.Wait(100)
+    lib.registerContext({
+        id = 'just_apartments:exitMenu',
+        title = "Elevator",
+        options = options
+    })
+    Citizen.Wait(100)
+    lib.showContext('just_apartments:exitMenu')
 end)
 
 RegisterNetEvent('just_apartments:keyholderMenu')
 AddEventHandler('just_apartments:keyholderMenu', function (data)
-    local playersAtDoor = playersAtDoor
     local keyholders = data.keyholders
     local options = {}
 
@@ -533,95 +642,84 @@ end)
 RegisterNetEvent('just_apartments:enterExitApartment')
 AddEventHandler('just_apartments:enterExitApartment', function (coords, enteringExiting)
     -- exports.xng_parsingtable:ParsingTable_cl(coords)
-    if coords.id ~= nil then 
+    if coords.id ~= nil then
         currentApartmentID = coords.id
     end
-	Citizen.CreateThread(function ()
-        local coords = coords
-        local player = PlayerPedId()
-        while atDoor or atExit do
-            if currentApartment == 'AltaStreetAppts' then
-                if IsControlJustReleased(0, 54) then
-                    if lib.progressBar({
-                        duration = 5000,
-                        label = enteringExiting.." Apartment",
-                        useWhileDead = false,
-                        canCancel = true,
-                        disable  = {
-                            move = true,
-                        },
-                    }) then
-                        PlaySoundFrontend(-1, "CLOSED", "MP_PROPERTIES_ELEVATOR_DOORS", 1);
-                        Citizen.Wait(500)
-                        PlaySoundFrontend(-1, "Hack_Success", "DLC_HEIST_BIOLAB_PREP_HACKING_SOUNDS", 0)
-                        Citizen.Wait(500)
-                        PlaySoundFrontend(-1, "OPENED", "MP_PROPERTIES_ELEVATOR_DOORS", 1);
+    local coords = coords
+    local player = PlayerPedId()
+    if currentApartment == 'AltaStreetAppts' then
+        if IsControlJustReleased(0, 54) then
+            if lib.progressBar({
+                duration = 5000,
+                label = enteringExiting.." Apartment",
+                useWhileDead = false,
+                canCancel = true,
+                disable  = {
+                    move = true,
+                },
+            }) then
+                PlaySoundFrontend(-1, "CLOSED", "MP_PROPERTIES_ELEVATOR_DOORS", 1);
+                Citizen.Wait(500)
+                PlaySoundFrontend(-1, "Hack_Success", "DLC_HEIST_BIOLAB_PREP_HACKING_SOUNDS", 0)
+                Citizen.Wait(500)
+                PlaySoundFrontend(-1, "OPENED", "MP_PROPERTIES_ELEVATOR_DOORS", 1);
 
-                        if enteringExiting == "Entering" then
-                            TriggerServerEvent('instance:set')
-                            TriggerServerEvent('just_apartments:updateLastApartment', 'AltaStreetAppts')
-                        else
-                            TriggerServerEvent('instance:set', 0)
-                            currentApartment = nil
-                            currentApartmentLabel = nil
-                            currentApartmentID = nil
-                            TriggerServerEvent('just_apartments:updateLastApartment', nil)
-                        end
-                        atDoor = false
-                        atExit = false
-                        SetEntityCoords(player, coords.x, coords.y, coords.z)
-                        SetEntityHeading(player, coords.h)
-                        lib.hideTextUI()
-                    end
+                if enteringExiting == "Entering" then
+                    TriggerServerEvent('instance:set')
+                    TriggerServerEvent('just_apartments:updateLastApartment', 'AltaStreetAppts')
+                else
+                    TriggerServerEvent('instance:set', 0)
+                    currentApartment = nil
+                    currentApartmentLabel = nil
+                    currentApartmentID = nil
+                    TriggerServerEvent('just_apartments:updateLastApartment', nil)
                 end
-            else 
-                atDoor = false
-                atExit = false
-                if lib.progressBar({
-                    duration = 5000,
-                    label = coords.enteringExiting.." Apartment",
-                    useWhileDead = false,
-                    canCancel = true,
-                    disable  = {
-                        move = true,
-                    },
-                }) then
-                    PlaySoundFrontend(-1, "CLOSED", "MP_PROPERTIES_ELEVATOR_DOORS", 1);
-                    Citizen.Wait(500)
-                    PlaySoundFrontend(-1, "Hack_Success", "DLC_HEIST_BIOLAB_PREP_HACKING_SOUNDS", 0)
-                    Citizen.Wait(500)
-                    PlaySoundFrontend(-1, "OPENED", "MP_PROPERTIES_ELEVATOR_DOORS", 1);
-
-                    if coords.enteringExiting == "Entering" then
-                        TriggerServerEvent('instance:setNamed', currentApartment..coords.id)
-                        TriggerServerEvent('just_apartments:updateLastApartment', currentApartment.." "..coords.id)
-                        currentApartmentID = coords.id
-                    elseif coords.enteringExiting == "Exiting" then
-                        if state == "Viewing" then  
-                            TriggerServerEvent('instance:set', 0)
-                            TriggerServerEvent('just_apartments:updateLastApartment', nil)
-                        else
-                            TriggerServerEvent('instance:setNamed', 0)
-                            TriggerServerEvent('just_apartments:updateLastApartment', nil)
-                        end
-                        state = nil
-                        currentApartment = nil
-                        currentApartmentLabel = nil
-                        currentApartmentID = nil
-                    elseif coords.enteringExiting == "Viewing" then
-                        state = "Viewing"
-                        TriggerServerEvent('instance:set')
-                    end
-                    atDoor = false
-                    atExit = false
-                    SetEntityCoords(player, coords.coords.x, coords.coords.y, coords.coords.z)
-                    SetEntityHeading(player, coords.coords.h)
-                    lib.hideTextUI()
-                end
+                SetEntityCoords(player, coords.x, coords.y, coords.z)
+                SetEntityHeading(player, coords.h)
+                lib.hideTextUI()
             end
-            Citizen.Wait(0)
         end
-	end)
+    else 
+        if lib.progressBar({
+            duration = 5000,
+            label = coords.enteringExiting.." Apartment",
+            useWhileDead = false,
+            canCancel = true,
+            disable  = {
+                move = true,
+            },
+        }) then
+            PlaySoundFrontend(-1, "CLOSED", "MP_PROPERTIES_ELEVATOR_DOORS", 1);
+            Citizen.Wait(500)
+            PlaySoundFrontend(-1, "Hack_Success", "DLC_HEIST_BIOLAB_PREP_HACKING_SOUNDS", 0)
+            Citizen.Wait(500)
+            PlaySoundFrontend(-1, "OPENED", "MP_PROPERTIES_ELEVATOR_DOORS", 1);
+
+            if coords.enteringExiting == "Entering" then
+                TriggerServerEvent('instance:setNamed', currentApartment..coords.id)
+                TriggerServerEvent('just_apartments:updateLastApartment', currentApartment.." "..coords.id)
+                currentApartmentID = coords.id
+            elseif coords.enteringExiting == "Exiting" then
+                if state == "Viewing" then  
+                    TriggerServerEvent('instance:set', 0)
+                    TriggerServerEvent('just_apartments:updateLastApartment', nil)
+                else
+                    TriggerServerEvent('instance:setNamed', 0)
+                    TriggerServerEvent('just_apartments:updateLastApartment', nil)
+                end
+                state = nil
+                currentApartment = nil
+                currentApartmentLabel = nil
+                currentApartmentID = nil
+            elseif coords.enteringExiting == "Viewing" then
+                state = "Viewing"
+                TriggerServerEvent('instance:set')
+            end
+            SetEntityCoords(player, coords.coords.x, coords.coords.y, coords.coords.z)
+            SetEntityHeading(player, coords.coords.h)
+            lib.hideTextUI()
+        end
+    end
 end)
 
 ----------
@@ -706,98 +804,6 @@ end)
 ------------
 -- Garage --
 ------------
-
-function Split(s, delimiter)
-    if s ~= nil then
-        result = {};
-        for match in (s..delimiter):gmatch("(.-)"..delimiter) do
-            table.insert(result, match);
-        end
-        return result;
-    end
-end
-
-function onEnter(self)
-end
-
-function onExit(self)
-	if self.type == "garage" then
-		lib.hideTextUI()
-		currentApartment = nil
-		Citizen.Wait(100)
-		visible = false
-		passedCheck = false
-	end
-end
-
-function insideZone(self)
-	local ped = PlayerPedId()
-	local inVehicle = GetVehiclePedIsIn(ped, false)
-	local apartment = Split(self.name, " ")
-    currentApartment = apartment[1]
-    spot = apartment[3]
-
-    if self.type == "garage" then
-        if passedCheck then
-            if not visible then
-                if inVehicle ~= 0 then
-                    visible = true
-                    lib.showTextUI("[E] Store Vehicle", {icon = "fa-solid fa-car"})
-                else
-                    visible = true
-                    lib.showTextUI("[E] Open Garage", {icon = "fa-solid fa-car"})
-                end
-            end
-            if IsControlJustReleased(0, 54) then
-                if inVehicle ~= 0 then
-                    TriggerEvent('just_apartments:viewGarages', currentApartment, 'just_apartments:StoreVehicle', inVehicle, false)
-                    passedCheck = false
-                else
-                    TriggerEvent('just_apartments:viewGarages', currentApartment, 'just_apartments:GetOwnedVehicles', nil, true)
-                    passedCheck = false
-                end
-            end
-        else
-	        Citizen.Wait(500)
-            ownedGarage = lib.callback.await('just_apartments:garageCheck', false, currentApartment)
-            keyedGarages = lib.callback.await('just_apartments:garageKeyCheck', false, currentApartment)
-            if ownedGarage ~= nil then
-                for i=1, #ownedGarage, 1 do
-                    if ownedGarage[i].apartment == currentApartment then
-                        passedCheck = true
-                        break
-                    end
-                end
-            end
-            if keyedGarages ~= nil then
-                for i=1, #keyedGarages, 1 do
-                    if keyedGarages[i].appt_name == currentApartment then
-                        passedCheck = true
-                        break
-                    end
-                end
-            end
-        end
-    end
-end
-
-for k, v in pairs(Config.Apartments) do
-	if v.parking ~= nil and Config.useGarages then
-		for k2, v2 in pairs(v.parking) do
-			lib.zones.box({
-				coords = vec3(v2.x, v2.y, v2.z),
-				size = vec3(3, 5.4, 4),
-				rotation = v2.h,
-				debug = false,
-				inside = insideZone,
-				onEnter = onEnter,
-				onExit = onExit,
-				name = k.." parking "..k2,
-				type = "garage",
-			})
-		end
-	end
-end
 
 RegisterNetEvent('just_apartments:viewGarages')
 AddEventHandler('just_apartments:viewGarages', function (currentApartment, event, vehicle, arrow)
