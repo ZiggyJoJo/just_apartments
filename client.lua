@@ -71,10 +71,11 @@ end
 
 function onEnter(self)
     local apartment = Split(self.name, " ")
+    currentApartment = apartment[1]
     if self.type == "garage" then
-        currentApartment = apartment[1]
+
     elseif self.type == "entrance" then
-        currentApartment = apartment[1]
+        
     elseif self.type == "wardrobe" then
 
     elseif self.type == "stash" then
@@ -733,7 +734,6 @@ end, false)
 
 RegisterNetEvent('just_apartments:givePlayerKeys')
 AddEventHandler('just_apartments:givePlayerKeys', function ()
-	local playerPed = PlayerPedId()
 	local closestPlayer, closestDistance = ESX.Game.GetClosestPlayer()
 	if closestPlayer ~= -1 and closestDistance <= 4.0 then
         local data = { target = GetPlayerServerId(closestPlayer), appt_id = currentApartmentID, appt_name = currentApartment }
