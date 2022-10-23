@@ -7,7 +7,6 @@ local passedCheck = false
 local checkOwnership = true
 local AtStash = false
 local currentApartment = nil
-local currentApartmentLabel = nil
 local currentApartmentID = nil
 
 Citizen.CreateThread(function()
@@ -33,7 +32,6 @@ AddEventHandler('esx:onPlayerLogout', function()
     passedCheck = false
     AtStash = false
     currentApartment = nil
-    currentApartmentLabel = nil
     currentApartmentID = nil
 end)
 
@@ -77,7 +75,6 @@ function onEnter(self)
         currentApartment = apartment[1]
     elseif self.type == "entrance" then
         currentApartment = apartment[1]
-        currentApartmentLabel = Config.Apartments[apartment[1]].label
     elseif self.type == "wardrobe" then
 
     elseif self.type == "stash" then
@@ -162,7 +159,7 @@ function insideZone(self)
             else
                 lib.callback('just_apartments:getOwnedApartments', false, function(data)
                     local apartments = lib.callback.await('just_apartments:keyCheck', false, currentApartment)
-                    print(apartments, data)
+                    -- print(apartments, data)
                     -- if apartments ~= nil then
                     --     exports.xng_parsingtable:ParsingTable_cl(apartments)
                     -- end
@@ -231,7 +228,6 @@ function insideZone(self)
             end
         end
     elseif self.type == "exit" then
-        currentApartmentLabel = Config.Apartments[currentApartment].label
         if not visible then
             visible = true
             lib.showTextUI("[E] Exit Apartment", {icon = "fa-solid fa-door-open"})
@@ -243,7 +239,7 @@ function insideZone(self)
                     TriggerEvent('just_apartments:enterExitApartment', Config.Apartments[currentApartment].exitPoint, "Exiting")
                 else
                     lib.callback('just_apartments:getPlayersAtDoor', false, function(coords, playersAtDoor, exit, keyholders)
-                        print(coords, playersAtDoor, exit, keyholders)
+                        -- print(coords, playersAtDoor, exit, keyholders)
                         TriggerEvent('just_apartments:exitMenu', coords, playersAtDoor, exit, keyholders)
                     end, Config.Apartments[currentApartment].exitPoint, currentApartment, currentApartmentID, Config.Apartments[currentApartment].exit)
                 end
@@ -336,7 +332,7 @@ AddEventHandler('just_apartments:keyEntryMenu', function (apartments, data)
     if not data.id then
         options = {
             {
-                title = "Purchase "..currentApartmentLabel.." Apartment",
+                title = "Purchase "..Config.Apartments[currentApartment].label.." Apartment",
                 description = "$"..comma_value(data.price),
                 event = 'just_apartments:purchaseApartment',
                 args = {
@@ -417,7 +413,7 @@ AddEventHandler('just_apartments:keyEntryMenu', function (apartments, data)
     end
     lib.registerContext({
         id = 'just_apartments:keyEntryMenu',
-        title = currentApartmentLabel,
+        title = Config.Apartments[currentApartment].label,
         options = options
     })
     lib.showContext('just_apartments:keyEntryMenu')
@@ -444,7 +440,7 @@ AddEventHandler('just_apartments:keyEntry', function (args)
 	end
     lib.registerContext({
         id = 'just_apartments:keyEntry',
-        title = currentApartmentLabel.." Appts",
+        title = Config.Apartments[currentApartment].label.." Appts",
         menu = "just_apartments:keyEntryMenu",
         options = options
     })
@@ -477,7 +473,7 @@ AddEventHandler('just_apartments:ringMenu', function (apartments, data, identifi
     Citizen.Wait(100)
     lib.registerContext({
         id = 'just_apartments:ringMenu',
-        title = currentApartmentLabel.." Appts",
+        title = Config.Apartments[currentApartment].label.." Appts",
         menu = "just_apartments:keyEntryMenu",
         options = options
     })
@@ -537,7 +533,7 @@ end)
 
 RegisterNetEvent('just_apartments:purchaseApartment')
 AddEventHandler('just_apartments:purchaseApartment', function (currentApartment)
-    TriggerServerEvent('just_apartments:purchaseApartment', currentApartment.currentApartment, currentApartmentLabel)
+    TriggerServerEvent('just_apartments:purchaseApartment', currentApartment.currentApartment)
     Citizen.Wait(250)
     TriggerServerEvent('just_apartments:getOwnedApartments', currentApartment.currentApartment, currentApartment.exit)
 end)
@@ -670,7 +666,6 @@ AddEventHandler('just_apartments:enterExitApartment', function (coords, entering
                 else
                     TriggerServerEvent('instance:set', 0)
                     currentApartment = nil
-                    currentApartmentLabel = nil
                     currentApartmentID = nil
                     TriggerServerEvent('just_apartments:updateLastApartment', nil)
                 end
@@ -679,7 +674,7 @@ AddEventHandler('just_apartments:enterExitApartment', function (coords, entering
                 lib.hideTextUI()
             end
         end
-    else 
+    else
         if lib.progressBar({
             duration = 5000,
             label = coords.enteringExiting.." Apartment",
@@ -699,24 +694,29 @@ AddEventHandler('just_apartments:enterExitApartment', function (coords, entering
                 TriggerServerEvent('instance:setNamed', currentApartment..coords.id)
                 TriggerServerEvent('just_apartments:updateLastApartment', currentApartment.." "..coords.id)
                 currentApartmentID = coords.id
+                SetEntityCoords(player, coords.coords.x, coords.coords.y, coords.coords.z)
+                SetEntityHeading(player, coords.coords.h)
             elseif coords.enteringExiting == "Exiting" then
-                if state == "Viewing" then  
+                if state == "Viewing" then
                     TriggerServerEvent('instance:set', 0)
                     TriggerServerEvent('just_apartments:updateLastApartment', nil)
+                    SetEntityCoords(player, Config.Apartments[currentApartment].entrance.x, Config.Apartments[currentApartment].entrance.y, Config.Apartments[currentApartment].entrance.z)
+                    SetEntityHeading(player, Config.Apartments[currentApartment].entrance.h)
                 else
                     TriggerServerEvent('instance:setNamed', 0)
                     TriggerServerEvent('just_apartments:updateLastApartment', nil)
+                    SetEntityCoords(player, coords.coords.x, coords.coords.y, coords.coords.z)
+                    SetEntityHeading(player, coords.coords.h)
                 end
                 state = nil
                 currentApartment = nil
-                currentApartmentLabel = nil
                 currentApartmentID = nil
             elseif coords.enteringExiting == "Viewing" then
                 state = "Viewing"
                 TriggerServerEvent('instance:set')
+                SetEntityCoords(player, coords.coords.x, coords.coords.y, coords.coords.z)
+                SetEntityHeading(player, coords.coords.h)
             end
-            SetEntityCoords(player, coords.coords.x, coords.coords.y, coords.coords.z)
-            SetEntityHeading(player, coords.coords.h)
             lib.hideTextUI()
         end
     end

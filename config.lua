@@ -11,7 +11,7 @@ Config.usePEFCL = false
 
 Config.Apartments = {
     ['AltaStreetAppts'] = {
-        label = "Alta Street Apartments", 
+        label = "Alta Street Apartments",
         type = "StarterApartment",
         seperateExitPoint = true,
         entrance = {x = -270.78894042969, y = -958.21881103516, z = 31.227436065674, h = 118.76303863525},
