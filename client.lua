@@ -170,7 +170,7 @@ function insideZone(self)
             end
         end
     elseif self.type == "wardrobe" then
-        if Config.BrpFivemAppearance or Config.ox_appearance then
+        if Config.BrpFivemAppearance or Config.ox_appearance or Config.wasabi_fivemappearance then
             if currentApartment == "AltaStreetAppts" then
                 if not visible then
                     visible = true
@@ -181,7 +181,10 @@ function insideZone(self)
                         TriggerEvent('fivem-appearance:useWardrobe')
                     elseif Config.ox_appearance then
                         TriggerEvent('ox_appearance:wardrobe')
-                    end                end
+                    elseif Config.wasabi_fivemappearance then
+                        exports['fivem-appearance']:openWardrobe()
+                    end                
+                end
             else
                 if checkOwnership then
                     passedCheck = lib.callback.await('just_apartments:checkApptOwnership', false, currentApartment, currentApartmentID)
@@ -197,6 +200,8 @@ function insideZone(self)
                             TriggerEvent('fivem-appearance:useWardrobe')
                         elseif Config.ox_appearance then
                             TriggerEvent('ox_appearance:wardrobe')
+                        elseif Config.wasabi_fivemappearance then
+                            exports['fivem-appearance']:openWardrobe()
                         end
                     end
                 end
