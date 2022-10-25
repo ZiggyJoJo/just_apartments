@@ -2,10 +2,11 @@ Config = {}
 
 Config.UseOxInventory = true
 
-Config.BrpFivemAppearance = true        -- Must choose one or the other if either is used
+Config.BrpFivemAppearance = false        -- Must choose one or the other if either is used
 Config.ox_appearance = false
+Config.wasabi_fivemappearance = true
 
-Config.useGarages = true
+Config.useGarages = false
 
 Config.usePEFCL = false
 
